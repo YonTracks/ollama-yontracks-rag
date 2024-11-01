@@ -2,7 +2,10 @@
   "version": "1.0",
   "globalSettings": {
     "apiEndpoint": "http://localhost:11434",
+    "chromaDir": "",
+    "chromaName": "",
     "defaultModel": "llama3.1",
+    "defaultEmbed:": "nomic-embed-text",
     "timeout": 30000,
     "stream": true
   },

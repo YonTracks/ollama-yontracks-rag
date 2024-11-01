@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "chromadb": "^1.9.2",
     "next": "15.0.2",
     "ollama": "^0.5.9",
     "react": "^18",
