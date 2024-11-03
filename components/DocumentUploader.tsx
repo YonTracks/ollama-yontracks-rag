@@ -10,29 +10,7 @@ export default function DocumentUploader() {
     e.preventDefault();
     setLoading(true);
     setMessage("");
-
-    try {
-      const response = await fetch("/api/ollamaRAG", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ documents: [documentText] }),
-      });
-
-      const result = await response.json();
-      if (response.ok) {
-        setMessage("Document uploaded and embedded successfully!");
-      } else {
-        setMessage(result.message || "Error embedding document");
-      }
-    } catch (error: unknown) {
-      setMessage("Failed to upload document");
-      console.log(error);
-    } finally {
-      setLoading(false);
-      setDocumentText("");
-    }
+    console.log("clicked");
   };
 
   return (
