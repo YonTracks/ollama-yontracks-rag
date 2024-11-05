@@ -24,9 +24,12 @@ import { FaTrashAlt, FaEllipsisV } from "react-icons/fa";
 
 export default function HomePage() {
   const [isClient, setIsClient] = useState<boolean>(false);
-  const [model] = useState(config.globalSettings.defaultModel);
+  const [model, setModel] = useState(config.globalSettings.defaultModel);
+  const [tools] = useState(config.defaultTools);
+  const [isTools, setIsTools] = useState<boolean>(false);
   const [prompt, setPrompt] = useState("");
-  const [response, setResponse] = useState("");
+  // Temporary state for the current streaming response
+  const [streamedResponse, setStreamedResponse] = useState<string>("");
   const [context, setContext] = useLocalStorage<number[]>(
     "home-rag-context",
     []
@@ -39,7 +42,9 @@ export default function HomePage() {
   const [isStreaming, setIsStreaming] = useState(false);
   const [modelDownloaded, setModelDownloaded] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-
+  const [activeTab, setActiveTab] = useState<"settings" | "models" | "tools">(
+    "models"
+  );
   // Refs for DOM elements
   const responseContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -111,7 +116,7 @@ export default function HomePage() {
   // Function to send the user's prompt to the API
   const sendPrompt = useCallback(async () => {
     if (!prompt.trim()) return;
-
+    setIsTools(false);
     setLoading(true);
     const currentContext = Array.from(new Set(context)); // Remove duplicate contexts
     const currentPrompt = prompt;
@@ -119,105 +124,137 @@ export default function HomePage() {
 
     console.log("Generated requestId:", requestId);
     setPrompt("");
-    setResponse("");
+    setStreamedResponse("");
 
     try {
-      const result = await fetch("/api/ollama", {
+      if (isTools) {
+        console.log("Sending prompt to tools API");
+        console.log("tools:", tools);
+        // Send the prompt and message history to the backend API (/api/ollamaChat)
+        /*
+      const response = await fetch("/api/ollamaChat", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "request-id": requestId, // Add requestId to headers
+          "request-id": requestId,
         },
         body: JSON.stringify({
           model,
-          prompt: currentPrompt,
-          context: currentContext,
-          stream: true,
+          messages,
+          tools,
+          stream: false,
         }),
       });
-
-      // Handle non-streaming response
-      if (
-        !result.body ||
-        !result.headers.get("Content-Type")?.includes("application/json")
-      ) {
-        const responseData = await result.json();
-        if (responseData.error) {
-          throw new Error(responseData.error);
-        }
-        setResponse(responseData.response);
-        setConversations((prev) => [
-          ...prev,
-          {
-            id: uuidv4(),
-            prompt: currentPrompt,
-            response: responseData.response,
-            timestamp: Date.now(),
+*/
+      } else {
+        const result = await fetch("/api/ollama", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "request-id": requestId, // Add requestId to headers
           },
-        ]);
-        setLoading(false);
-        setIsStreaming(false);
-        return;
-      }
+          body: JSON.stringify({
+            model,
+            prompt: currentPrompt,
+            context: currentContext,
+            stream: true,
+          }),
+        });
 
-      // Streaming response
-      let fullResponse = "";
-      setIsStreaming(true);
-
-      const onParse = (parsedData: GenerateResponse) => {
-        if (parsedData.response) {
-          fullResponse += parsedData?.response;
-          setResponse(fullResponse);
-          scrollToEnd();
-        }
-        if (parsedData?.done) {
-          if (parsedData.context) {
-            setContext(parsedData.context);
+        // Handle non-streaming response
+        if (
+          !result.body ||
+          !result.headers.get("Content-Type")?.includes("application/json")
+        ) {
+          const responseData = await result.json();
+          if (responseData.error) {
+            throw new Error(responseData.error);
           }
+          setStreamedResponse(responseData.response);
           setConversations((prev) => [
             ...prev,
             {
               id: uuidv4(),
               prompt: currentPrompt,
-              response: fullResponse,
+              response: responseData.response,
               timestamp: Date.now(),
             },
           ]);
-          setResponse("");
+          setLoading(false);
+          setIsStreaming(false);
+          return;
+        }
+
+        // Streaming response
+        let fullResponse = "";
+        setIsStreaming(true);
+
+        const onParse = (parsedData: GenerateResponse) => {
+          if (parsedData.response) {
+            fullResponse += parsedData?.response;
+            setStreamedResponse(fullResponse);
+            scrollToEnd();
+          }
+          if (parsedData?.done) {
+            if (parsedData.context) {
+              setContext(parsedData.context);
+            }
+            setConversations((prev) => [
+              ...prev,
+              {
+                id: uuidv4(),
+                prompt: currentPrompt,
+                response: fullResponse,
+                timestamp: Date.now(),
+              },
+            ]);
+            setStreamedResponse("");
+            setLoading(false);
+            setIsStreaming(false);
+            scrollToEnd();
+          }
+        };
+
+        const onFinish = () => {
           setLoading(false);
           setIsStreaming(false);
           scrollToEnd();
-        }
-      };
+        };
 
-      const onFinish = () => {
-        setLoading(false);
-        setIsStreaming(false);
-        scrollToEnd();
-      };
+        const onError = (error: unknown) => {
+          console.error("Stream parsing error:", error);
+          setLoading(false);
+          setIsStreaming(false);
+          setStreamedResponse(
+            "An error occurred while generating the response."
+          );
+        };
 
-      const onError = (error: unknown) => {
-        console.error("Stream parsing error:", error);
-        setLoading(false);
-        setIsStreaming(false);
-        setResponse("An error occurred while generating the response.");
-      };
+        const parser = new StreamParser(
+          { format: "ollama" }, // Use 'openai' if interacting with OpenAI API
+          onParse,
+          onFinish,
+          onError
+        );
 
-      const parser = new StreamParser(
-        { format: "ollama" }, // Use 'openai' if interacting with OpenAI API
-        onParse,
-        onFinish,
-        onError
-      );
-
-      await parser.parse(result.body!);
+        await parser.parse(result.body!);
+      }
     } catch (error) {
       console.error("Error in sendPrompt:", error);
       setLoading(false);
       setIsStreaming(false);
-      setResponse("An error occurred while generating the response.");
+      setStreamedResponse("An error occurred while generating the response.");
     }
-  }, [prompt, context, model, setContext, setConversations, scrollToEnd]);
+  }, [
+    prompt,
+    context,
+    isTools,
+    tools,
+    model,
+    setConversations,
+    scrollToEnd,
+    setContext,
+  ]);
 
   // Set the client-side rendering flag and fetch models on component mount
   useEffect(() => {
@@ -250,6 +287,15 @@ export default function HomePage() {
     setDropdownOpen(!dropdownOpen);
   };
 
+  const handleModelSelect = (selectedModel: string) => {
+    setModel(selectedModel);
+    setDropdownOpen(false);
+  };
+
+  const handleTabChange = (tab: "settings" | "models" | "tools") => {
+    setActiveTab(tab);
+  };
+
   // Start a new chat session
   const handleNewChat = () => {
     setContext([]);
@@ -266,9 +312,7 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col w-full justify-center items-center p-2 sm:p-4">
-      <h1 className="text-xl sm:text-2xl mb-2 sm:mb-4">
-        Generate Chat Completion
-      </h1>
+      <h1 className="text-xl sm:text-2xl mb-2 sm:mb-4">Ollama test</h1>
 
       {/* Conversation Container */}
       <div className="w-full max-w-full sm:max-w-4xl rounded-lg shadow-md m-2 sm:m-4 p-4 sm:p-6 flex flex-col space-y-4">
@@ -292,22 +336,91 @@ export default function HomePage() {
 
             {/* Dropdown Menu */}
             {dropdownOpen && (
-              <div
-                onClick={toggleDropdown}
-                className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg"
-              >
-                <label className="flex justify-center text-gray-700">
-                  models
-                </label>
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                  llama3.1
+              <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50">
+                <button
+                  onClick={toggleDropdown}
+                  className="flex justify-self-end text-black px-2 hover:text-gray-400"
+                >
+                  X
                 </button>
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                  llama3.1-params
-                </button>
-                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                  llama3.2
-                </button>
+                <div className="flex justify-around border-b border-gray-200">
+                  <button
+                    className={`w-1/3 py-2 ${
+                      activeTab === "settings"
+                        ? "text-blue-500 border-b-2 border-blue-500"
+                        : "text-gray-700"
+                    }`}
+                    onClick={() => handleTabChange("settings")}
+                  >
+                    Settings
+                  </button>
+                  <button
+                    className={`w-1/3 py-2 ${
+                      activeTab === "models"
+                        ? "text-blue-500 border-b-2 border-blue-500"
+                        : "text-gray-700"
+                    }`}
+                    onClick={() => handleTabChange("models")}
+                  >
+                    Models
+                  </button>
+                  <button
+                    className={`w-1/3 py-2 ${
+                      activeTab === "tools"
+                        ? "text-blue-500 border-b-2 border-blue-500"
+                        : "text-gray-700"
+                    }`}
+                    onClick={() => handleTabChange("tools")}
+                  >
+                    Tools
+                  </button>
+                </div>
+
+                {/* Content for each tab */}
+                <div className="p-4">
+                  {activeTab === "settings" && (
+                    <div>
+                      <p className="text-gray-700">API Endpoint:</p>
+                      <p className="text-gray-900">
+                        {config.globalSettings.apiEndpoint}
+                      </p>
+                      <p className="text-gray-700 mt-2">Default Model:</p>
+                      <p className="text-gray-900">
+                        {config.globalSettings.defaultModel}
+                      </p>
+                      <p className="text-gray-700 mt-2">Default Embed:</p>
+                      <p className="text-gray-900">
+                        {config.globalSettings.defaultEmbed}
+                      </p>
+                    </div>
+                  )}
+
+                  {activeTab === "models" && (
+                    <div>
+                      {config.models.map((modelConfig, index) => {
+                        const modelName = Object.keys(modelConfig)[0];
+                        return (
+                          <button
+                            key={index}
+                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            onClick={() => handleModelSelect(modelName)}
+                          >
+                            {modelName}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {activeTab === "tools" && (
+                    <div>
+                      <p className="text-gray-700">
+                        No additional tools configured.
+                      </p>
+                      {/* Add additional tool configurations here if applicable */}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -375,11 +488,11 @@ export default function HomePage() {
           })}
 
           {/* Streaming Response */}
-          {response && (
+          {streamedResponse && (
             <div className="self-start">
               <div className="rounded-lg break-words shadow-sm">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {response}
+                  {streamedResponse}
                 </ReactMarkdown>
               </div>
             </div>

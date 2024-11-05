@@ -3,7 +3,8 @@
   "globalSettings": {
     "apiEndpoint": "http://localhost:11434",
     "defaultModel": "llama3.1",
-    "defaultEmbed:": "nomic-embed-text",
+    "defaultEmbed": "nomic-embed-text",
+    "toolsEnabled": false,
     "timeout": 30000,
     "stream": true
   },
@@ -25,6 +26,62 @@
           "temperature": 0.7,
           "num_ctx": 2048,
           "stream": true
+        }
+      }
+    },
+    {
+      "llama3.1-code": {
+        "description": "LLaMA v3.2 - General purpose ipython tag",
+        "settings": {
+          "temperature": 0.7,
+          "num_ctx": 2048,
+          "stream": true
+        }
+      }
+    }
+  ],
+  "defaultTools": [
+    {
+      "type": "function",
+      "functionName": "getFlightTimes",
+      "function": {
+        "id": "get_flight_times",
+        "name": "get_flight_times",
+        "description": "Get the flight times between two cities",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "departure": {
+              "type": "string",
+              "description": "The departure city (airport code)"
+            },
+            "arrival": {
+              "type": "string",
+              "description": "The arrival city (airport code)"
+            }
+          },
+          "required": ["departure", "arrival"],
+          "additionalProperties": false
+        }
+      }
+    },
+    {
+      "type": "function",
+      "functionName": "getCurrentWeather",
+      "function": {
+        "id": "get_current_weather1",
+        "name": "get_current_weather",
+        "description": "Get the current weather for a city",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "city": {
+              "type": "string",
+              "description": "The name of the city"
+            }
+          },
+          "required": ["city"],
+          "additionalProperties": false
         }
       }
     }
