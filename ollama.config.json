@@ -7,14 +7,26 @@
     "timeout": 30000,
     "stream": true
   },
-  "models": {
-    "llama3.1": {
-      "description": "LLaMA v3.1 - General purpose large language model",
-      "settings": {
-        "temperature": 0.7,
-        "num_ctx": 2048,
-        "stream": true
+  "models": [
+    {
+      "llama3.1": {
+        "description": "LLaMA v3.1 - General purpose large language model",
+        "settings": {
+          "temperature": 0.7,
+          "num_ctx": 2048,
+          "stream": true
+        }
+      }
+    },
+    {
+      "llama3.2": {
+        "description": "LLaMA v3.2 - General purpose large language model",
+        "settings": {
+          "temperature": 0.7,
+          "num_ctx": 2048,
+          "stream": true
+        }
       }
     }
-  }
+  ]
 }

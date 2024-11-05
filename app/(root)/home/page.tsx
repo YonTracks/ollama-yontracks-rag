@@ -20,21 +20,25 @@ import { v4 as uuidv4 } from "uuid";
 import config from "@/ollama.config.json";
 import { StreamParser } from "@/lib/utils/streamParser";
 import { Conversation } from "@/types/conversations";
-import { FaTrashAlt } from "react-icons/fa";
+import { FaTrashAlt, FaEllipsisV } from "react-icons/fa";
 
 export default function HomePage() {
   const [isClient, setIsClient] = useState<boolean>(false);
   const [model] = useState(config.globalSettings.defaultModel);
   const [prompt, setPrompt] = useState("");
   const [response, setResponse] = useState("");
-  const [context, setContext] = useLocalStorage<number[]>("home-rag-context", []);
+  const [context, setContext] = useLocalStorage<number[]>(
+    "home-rag-context",
+    []
+  );
   const [loading, setLoading] = useState(false);
   const [conversations, setConversations] = useLocalStorage<Conversation[]>(
     "home-rag-conversations",
     []
   );
-  const [isStreaming, setIsStreaming] = useState(false); // Streaming state
-  const [modelDownloaded, setModelDownloaded] = useState(false); // Model availability
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [modelDownloaded, setModelDownloaded] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Refs for DOM elements
   const responseContainerRef = useRef<HTMLDivElement>(null);
@@ -241,6 +245,11 @@ export default function HomePage() {
     return () => textarea?.removeEventListener("keydown", handleKeyDown);
   }, [sendPrompt]);
 
+  // Toggle dropdown visibility
+  const toggleDropdown = () => {
+    setDropdownOpen(!dropdownOpen);
+  };
+
   // Start a new chat session
   const handleNewChat = () => {
     setContext([]);
@@ -271,6 +280,37 @@ export default function HomePage() {
           >
             New Chat
           </button>
+
+          {/* Dropdown Menu Button */}
+          <div className="relative">
+            <button
+              className="p-2 rounded-full hover:bg-gray-200 focus:outline-none"
+              onClick={toggleDropdown}
+            >
+              <FaEllipsisV />
+            </button>
+
+            {/* Dropdown Menu */}
+            {dropdownOpen && (
+              <div
+                onClick={toggleDropdown}
+                className="absolute right-0 mt-2 w-40 bg-white border border-gray-200 rounded-md shadow-lg"
+              >
+                <label className="flex justify-center text-gray-700">
+                  models
+                </label>
+                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  llama3.1
+                </button>
+                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  llama3.1-params
+                </button>
+                <button className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
+                  llama3.2
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Prompt List when no conversations */}
