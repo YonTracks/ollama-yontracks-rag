@@ -1,6 +1,6 @@
 "use client";
-import React from "react";
 import { useTheme } from "next-themes";
+import React from "react";
 import { FaMoon } from "react-icons/fa";
 
 const ThemeButton = () => {
@@ -8,7 +8,7 @@ const ThemeButton = () => {
 
   return (
     <button
-      onClick={() => (theme == "dark" ? setTheme("light") : setTheme("dark"))}
+      onClick={() => (theme === "dark" ? setTheme("light") : setTheme("dark"))}
     >
       <FaMoon size={20} />
     </button>

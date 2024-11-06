@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
-import Navbar from "@/components/shared/Navbar";
 import { ThemeProvider } from "next-themes";
+import React from "react";
 
+import Navbar from "@/components/shared/Navbar";
 export const metadata: Metadata = {
   title: "ollama next prototyping / experimental",
   description:

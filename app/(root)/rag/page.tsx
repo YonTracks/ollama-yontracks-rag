@@ -1,10 +1,11 @@
-import DocumentUploader from "@/components/DocumentUploader";
 import React from "react";
+
+import DocumentUploader from "@/components/DocumentUploader";
 
 function RAGPage() {
   return (
-    <div className="flex flex-col w-full justify-center items-center p-2 sm:p-4">
-      <h1 className="text-xl sm:text-2xl mb-2 sm:mb-4">RAG Page</h1>
+    <div className="flex w-full flex-col items-center justify-center p-2 sm:p-4">
+      <h1 className="mb-2 text-xl sm:mb-4 sm:text-2xl">RAG Page</h1>
 
       <div>
         <DocumentUploader />

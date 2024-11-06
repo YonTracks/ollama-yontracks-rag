@@ -18,12 +18,12 @@ const PromptList: React.FC<PromptListProps> = ({ setPrompt }) => {
 
   return (
     <div className="flex flex-col items-center space-y-2 p-4">
-      <h2 className="text-lg font-semibold mb-2">Try one of these prompts</h2>
-      <ul className="space-y-2 w-full max-w-md">
+      <h2 className="mb-2 text-lg font-semibold">Try one of these prompts</h2>
+      <ul className="w-full max-w-md space-y-2">
         {prompts.map((prompt, index) => (
           <li key={index}>
             <button
-              className="w-full px-4 py-2 text-left bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md shadow-sm"
+              className="w-full rounded-md bg-gray-100 px-4 py-2 text-left shadow-sm hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700"
               onClick={() => setPrompt(prompt)}
             >
               {prompt}

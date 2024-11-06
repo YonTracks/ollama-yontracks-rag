@@ -54,20 +54,20 @@ export async function POST(request: NextRequest) {
       headers: { "Content-Type": "application/json" },
     });
   } catch (error: unknown) {
-    if (error && typeof error === 'object' && 'name' in error) {
-        if (error.name === "AbortError") {
-          console.log(
-            `Stream for requestId: ${requestId} was aborted due to timeout`
-          );
-        } else {
-          console.error("An unexpected error occurred:", error);
-        }
+    if (error && typeof error === "object" && "name" in error) {
+      if (error.name === "AbortError") {
+        console.log(
+          `Stream for requestId: ${requestId} was aborted due to timeout`
+        );
       } else {
         console.error("An unexpected error occurred:", error);
       }
+    } else {
+      console.error("An unexpected error occurred:", error);
     }
-      return NextResponse.json(
-        { error: "Request timed out or was aborted" },
-        { status: 408 } // Request Timeout
-      );
+  }
+  return NextResponse.json(
+    { error: "Request timed out or was aborted" },
+    { status: 408 } // Request Timeout
+  );
 }

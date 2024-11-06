@@ -9,23 +9,24 @@ import {
   useCallback,
   useLayoutEffect,
 } from "react";
-import { GenerateResponse } from "@/types/interfaces";
+import { FaTrashAlt, FaEllipsisV } from "react-icons/fa";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import useLocalStorage from "@/hooks/useLocalStorage";
+import { v4 as uuidv4 } from "uuid";
+
 import CodeBlockComponent from "@/components/CodeBlockComponent";
 import PromptList from "@/components/PromptList";
+import useLocalStorage from "@/hooks/useLocalStorage";
 import { extractCodeSnippets } from "@/lib/utils/extractCodeSnippets";
-import { v4 as uuidv4 } from "uuid";
-import config from "@/ollama.config.json";
 import { StreamParser } from "@/lib/utils/streamParser";
+import config from "@/ollama.config.json";
 import { Conversation } from "@/types/conversations";
-import { FaTrashAlt, FaEllipsisV } from "react-icons/fa";
+import { GenerateResponse } from "@/types/interfaces";
 
 export default function HomePage() {
   const [isClient, setIsClient] = useState<boolean>(false);
   const [model, setModel] = useState(config.globalSettings.defaultModel);
-  const [tools] = useState(config.defaultTools);
+  const [tools] = useState(config.defaultTools || []);
   const [isTools, setIsTools] = useState<boolean>(false);
   const [prompt, setPrompt] = useState("");
   // Temporary state for the current streaming response
@@ -45,6 +46,10 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"settings" | "models" | "tools">(
     "models"
   );
+  const [position, setPosition] = useState({ x: -220, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
   // Refs for DOM elements
   const responseContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -282,18 +287,57 @@ export default function HomePage() {
     return () => textarea?.removeEventListener("keydown", handleKeyDown);
   }, [sendPrompt]);
 
+  // Mouse events for dragging
+  const handleMouseDown = (e: React.MouseEvent) => {
+    setIsDragging(true);
+    dragStartPosition.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y,
+    };
+  };
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (isDragging) {
+        const newX = e.clientX - dragStartPosition.current.x;
+        const newY = e.clientY - dragStartPosition.current.y;
+        setPosition({ x: newX, y: newY });
+      }
+    },
+    [isDragging]
+  );
+
+  const handleMouseUp = () => setIsDragging(false);
+
+  // Attach and remove event listeners for dragging
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener("mousemove", handleMouseMove);
+      window.addEventListener("mouseup", handleMouseUp);
+    } else {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    }
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [handleMouseMove, isDragging]);
+
   // Toggle dropdown visibility
   const toggleDropdown = () => {
     setDropdownOpen(!dropdownOpen);
   };
 
+  const handleTabChange = (tab: "settings" | "models" | "tools") => {
+    setActiveTab(tab);
+  };
+
+  // Function to select model
   const handleModelSelect = (selectedModel: string) => {
     setModel(selectedModel);
     setDropdownOpen(false);
-  };
-
-  const handleTabChange = (tab: "settings" | "models" | "tools") => {
-    setActiveTab(tab);
   };
 
   // Start a new chat session
@@ -311,72 +355,75 @@ export default function HomePage() {
   if (!isClient) return null; // Ensure client-side rendering
 
   return (
-    <div className="flex flex-col w-full justify-center items-center p-2 sm:p-4">
-      <h1 className="text-xl sm:text-2xl mb-2 sm:mb-4">Ollama test</h1>
+    <div className="flex w-full flex-col items-center justify-center p-2 sm:p-4">
+      <h1 className="mb-2 text-xl sm:mb-4 sm:text-2xl">Ollama test</h1>
 
-      {/* Conversation Container */}
-      <div className="w-full max-w-full sm:max-w-4xl rounded-lg shadow-md m-2 sm:m-4 p-4 sm:p-6 flex flex-col space-y-4">
-        {/* Header with New Chat button */}
-        <div className="flex justify-between mb-4">
+      <div className="m-2 flex w-full max-w-full flex-col space-y-4 rounded-lg p-4 shadow-md sm:m-4 sm:max-w-4xl sm:p-6">
+        <div className="mb-4 flex justify-between">
           <button
-            className="px-3 sm:px-4 py-2 font-semibold bg-green-500 rounded-md text-white hover:bg-green-600 focus:outline-none focus:ring focus:ring-green-300"
-            onClick={handleNewChat}
+            className="rounded-md bg-green-500 px-3 py-2 font-semibold text-white hover:bg-green-600 focus:outline-none focus:ring focus:ring-green-300 sm:px-4"
+            onClick={() => {
+              // Reset position on New Chat
+              setPosition({ x: -220, y: 0 });
+              handleNewChat();
+            }}
           >
             New Chat
           </button>
 
-          {/* Dropdown Menu Button */}
           <div className="relative">
             <button
-              className="p-2 rounded-full hover:bg-gray-200 focus:outline-none"
+              className="rounded-full p-2 hover:bg-gray-200 focus:outline-none"
               onClick={toggleDropdown}
             >
               <FaEllipsisV />
             </button>
 
-            {/* Dropdown Menu */}
             {dropdownOpen && (
-              <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-md shadow-lg z-50">
-                <button
-                  onClick={toggleDropdown}
-                  className="flex justify-self-end text-black px-2 hover:text-gray-400"
+              <div
+                className="absolute z-50 mt-2 w-64 resize rounded-md border border-gray-200 bg-white shadow-lg"
+                style={{
+                  top: `${position.y}px`,
+                  left: `${position.x}px`,
+                  resize: "both",
+                  overflow: "auto",
+                }}
+              >
+                {/* Title bar for dragging */}
+                <div
+                  className="flex cursor-move items-center justify-between bg-gray-100 p-2"
+                  onMouseDown={handleMouseDown}
                 >
-                  X
-                </button>
+                  <span className="font-semibold text-gray-700">Menu</span>
+                  <button
+                    onClick={toggleDropdown}
+                    className="px-2 text-black hover:text-gray-400"
+                  >
+                    X
+                  </button>
+                </div>
+
                 <div className="flex justify-around border-b border-gray-200">
                   <button
-                    className={`w-1/3 py-2 ${
-                      activeTab === "settings"
-                        ? "text-blue-500 border-b-2 border-blue-500"
-                        : "text-gray-700"
-                    }`}
+                    className={`w-1/3 py-2 ${activeTab === "settings" ? "border-b-2 border-blue-500 text-blue-500" : "text-gray-700"}`}
                     onClick={() => handleTabChange("settings")}
                   >
                     Settings
                   </button>
                   <button
-                    className={`w-1/3 py-2 ${
-                      activeTab === "models"
-                        ? "text-blue-500 border-b-2 border-blue-500"
-                        : "text-gray-700"
-                    }`}
+                    className={`w-1/3 py-2 ${activeTab === "models" ? "border-b-2 border-blue-500 text-blue-500" : "text-gray-700"}`}
                     onClick={() => handleTabChange("models")}
                   >
                     Models
                   </button>
                   <button
-                    className={`w-1/3 py-2 ${
-                      activeTab === "tools"
-                        ? "text-blue-500 border-b-2 border-blue-500"
-                        : "text-gray-700"
-                    }`}
+                    className={`w-1/3 py-2 ${activeTab === "tools" ? "border-b-2 border-blue-500 text-blue-500" : "text-gray-700"}`}
                     onClick={() => handleTabChange("tools")}
                   >
                     Tools
                   </button>
                 </div>
 
-                {/* Content for each tab */}
                 <div className="p-4">
                   {activeTab === "settings" && (
                     <div>
@@ -384,11 +431,11 @@ export default function HomePage() {
                       <p className="text-gray-900">
                         {config.globalSettings.apiEndpoint}
                       </p>
-                      <p className="text-gray-700 mt-2">Default Model:</p>
+                      <p className="mt-2 text-gray-700">Default Model:</p>
                       <p className="text-gray-900">
                         {config.globalSettings.defaultModel}
                       </p>
-                      <p className="text-gray-700 mt-2">Default Embed:</p>
+                      <p className="mt-2 text-gray-700">Default Embed:</p>
                       <p className="text-gray-900">
                         {config.globalSettings.defaultEmbed}
                       </p>
@@ -402,7 +449,7 @@ export default function HomePage() {
                         return (
                           <button
                             key={index}
-                            className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                            className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100"
                             onClick={() => handleModelSelect(modelName)}
                           >
                             {modelName}
@@ -414,10 +461,37 @@ export default function HomePage() {
 
                   {activeTab === "tools" && (
                     <div>
-                      <p className="text-gray-700">
-                        No additional tools configured.
-                      </p>
-                      {/* Add additional tool configurations here if applicable */}
+                      {tools.length > 0 ? (
+                        tools.map((tool, index) => (
+                          <div key={index} className="mb-4">
+                            <p className="font-semibold text-gray-700">
+                              {tool.functionName}
+                            </p>
+                            <p className="text-gray-600">
+                              {tool.function.description}
+                            </p>
+                            <div className="mt-2">
+                              <p className="text-sm font-semibold text-gray-700">
+                                Parameters:
+                              </p>
+                              <ul className="list-inside list-disc text-sm text-gray-600">
+                                {Object.entries(
+                                  tool.function.parameters.properties
+                                ).map(([paramName, paramDetails]) => (
+                                  <li key={paramName}>
+                                    <span className="font-semibold">
+                                      {paramName}
+                                    </span>
+                                    : {paramDetails.description}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-gray-700">No tools configured.</p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -434,7 +508,7 @@ export default function HomePage() {
         {/* Conversation Display */}
         <div
           style={{ height: "24rem" }}
-          className="flex flex-col resize space-y-4 overflow-y-auto h-64 sm:h-96 p-2 my-6 sm:my-12"
+          className="my-6 flex h-64 resize flex-col space-y-4 overflow-y-auto p-2 sm:my-12 sm:h-96"
           ref={responseContainerRef}
         >
           {/* Render each conversation */}
@@ -459,15 +533,15 @@ export default function HomePage() {
                 </div>
 
                 {/* User Prompt */}
-                <div className="flex justify-end items-center space-x-2">
-                  <div className="max-w-xs bg-blue-500 p-2 sm:p-4 rounded-lg text-white md:max-w-md w-auto break-words shadow-sm">
+                <div className="flex items-center justify-end space-x-2">
+                  <div className="w-auto max-w-xs break-words rounded-lg bg-blue-500 p-2 text-white shadow-sm sm:p-4 md:max-w-md">
                     {conversation.prompt}
                   </div>
                 </div>
 
                 {/* AI Response */}
                 <div className="flex justify-start">
-                  <div className="rounded-lg break-words shadow-sm">
+                  <div className="break-words rounded-lg shadow-sm">
                     {parts.map((part, i) => (
                       <div key={i} className="mb-4">
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -490,7 +564,7 @@ export default function HomePage() {
           {/* Streaming Response */}
           {streamedResponse && (
             <div className="self-start">
-              <div className="rounded-lg break-words shadow-sm">
+              <div className="break-words rounded-lg shadow-sm">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {streamedResponse}
                 </ReactMarkdown>
@@ -500,9 +574,9 @@ export default function HomePage() {
         </div>
 
         {loading && (
-          <div className="self-start w-full sm:w-auto">
-            <div className="px-4 py-2 mt-4 rounded-lg bg-green-500 w-full max-w-xs sm:max-w-md break-words shadow-sm">
-              <h1 className="animate-pulse text-white text-sm sm:text-base">
+          <div className="w-full self-start sm:w-auto">
+            <div className="mt-4 w-full max-w-xs break-words rounded-lg bg-green-500 px-4 py-2 shadow-sm sm:max-w-md">
+              <h1 className="animate-pulse text-sm text-white sm:text-base">
                 Thinking...
               </h1>
             </div>
@@ -512,9 +586,9 @@ export default function HomePage() {
 
       {/* Scroll to Bottom Button */}
       {conversations.length > 0 && (
-        <div className="z-20 pb-4 flex justify-center">
+        <div className="z-20 flex justify-center pb-4">
           <button
-            className="px-2 font-semibold bg-blue-500/80 rounded-full text-white hover:bg-blue-600/90 focus:outline-none focus:ring focus:ring-blue-300"
+            className="rounded-full bg-blue-500/80 px-2 font-semibold text-white hover:bg-blue-600/90 focus:outline-none focus:ring focus:ring-blue-300"
             onClick={scrollToEnd}
           >
             ↓
@@ -523,11 +597,11 @@ export default function HomePage() {
       )}
 
       {/* Input Area */}
-      <div className="w-full max-w-full sm:max-w-4xl fixed bottom-0 border-gray-200">
-        <div className="flex space-x-2 mt-2 px-4 py-2">
+      <div className="fixed bottom-0 w-full max-w-full border-gray-200 sm:max-w-4xl">
+        <div className="mt-2 flex space-x-2 px-4 py-2">
           <textarea
             ref={textareaRef}
-            className="text-input flex-grow p-2 sm:p-4 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring focus:border-blue-300"
+            className="grow rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-300 focus:outline-none focus:ring sm:p-4"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Type your message..."
@@ -536,7 +610,7 @@ export default function HomePage() {
           {/* Send or Stop Button */}
           {!isStreaming ? (
             <button
-              className="px-3 sm:px-4 py-2 font-semibold bg-blue-500 text-white rounded-md shadow hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300"
+              className="rounded-md bg-blue-500 px-3 py-2 font-semibold text-white shadow hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300 sm:px-4"
               onClick={sendPrompt}
               disabled={loading || !modelDownloaded}
             >
@@ -544,7 +618,7 @@ export default function HomePage() {
             </button>
           ) : (
             <button
-              className="px-3 sm:px-4 py-2 font-semibold bg-red-500 text-white rounded-md shadow hover:bg-red-600 focus:outline-none focus:ring focus:ring-red-300"
+              className="rounded-md bg-red-500 px-3 py-2 font-semibold text-white shadow hover:bg-red-600 focus:outline-none focus:ring focus:ring-red-300 sm:px-4"
               onClick={stopStream}
             >
               Stop

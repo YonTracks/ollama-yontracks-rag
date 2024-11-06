@@ -16,7 +16,7 @@ export function getBaseUrl(url: string) {
   return `${parsedUrl.protocol}//${parsedUrl.hostname}`;
 }
 
-export function generateExcerpt(content: any, maxLength = 200) {
+export function generateExcerpt(content: string, maxLength = 200) {
   return content.length > maxLength
     ? `${content.slice(0, maxLength)}...`
     : content;
@@ -33,7 +33,7 @@ export function formatText(originalText: string) {
  * @param tokenLimit - The number of words to limit the text to
  * @returns A truncated string
  */
-export function truncateToNWords(text: string, tokenLimit: any) {
+export function truncateToNWords(text: string, tokenLimit: number) {
   const tokens = text.split(" ");
   return tokens.slice(0, tokenLimit).join(" ");
 }

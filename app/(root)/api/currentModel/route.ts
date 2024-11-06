@@ -1,6 +1,6 @@
 // app/(root)/api/currentModel/route.ts
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic"; // Ensure the route is always dynamic
 

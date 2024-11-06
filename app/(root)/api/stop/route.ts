@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ model: model, stream: false, keep_alive: 0 }),
+      body: JSON.stringify({ model, stream: false, keep_alive: 0 }),
     });
 
     const jsonResponse = await response.json();

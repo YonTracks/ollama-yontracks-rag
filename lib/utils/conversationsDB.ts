@@ -1,7 +1,8 @@
 // lib/utils/conversationsDB.ts
 
-import { Conversation } from "@/types/conversations";
 import { openDB, DBSchema, IDBPDatabase } from "idb";
+
+import { Conversation } from "@/types/conversations";
 
 // Define the database schema
 interface MyAppDB extends DBSchema {
