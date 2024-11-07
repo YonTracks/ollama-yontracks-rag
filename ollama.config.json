@@ -5,6 +5,7 @@
     "defaultModel": "llama3.1",
     "defaultEmbed": "nomic-embed-text",
     "toolsEnabled": false,
+    "visionEnabled": false,
     "timeout": 30000,
     "stream": true
   },
@@ -22,16 +23,6 @@
     {
       "llama3.2": {
         "description": "LLaMA v3.2 - General purpose large language model",
-        "settings": {
-          "temperature": 0.7,
-          "num_ctx": 2048,
-          "stream": true
-        }
-      }
-    },
-    {
-      "llama3.1-code": {
-        "description": "LLaMA v3.2 - General purpose ipython tag",
         "settings": {
           "temperature": 0.7,
           "num_ctx": 2048,
@@ -60,7 +51,10 @@
               "description": "The arrival city (airport code)"
             }
           },
-          "required": ["departure", "arrival"],
+          "required": [
+            "departure",
+            "arrival"
+          ],
           "additionalProperties": false
         }
       }
@@ -80,7 +74,9 @@
               "description": "The name of the city"
             }
           },
-          "required": ["city"],
+          "required": [
+            "city"
+          ],
           "additionalProperties": false
         }
       }
