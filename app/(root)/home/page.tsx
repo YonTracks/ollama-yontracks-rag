@@ -3,6 +3,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import {
   useState,
   useEffect,
@@ -17,17 +18,22 @@ import { v4 as uuidv4 } from "uuid";
 
 import CodeBlockComponent from "@/components/CodeBlockComponent";
 import PromptList from "@/components/PromptList";
-import useLocalStorage from "@/hooks/useLocalStorage";
+import RunCodeComponent from "@/components/RunCodeComponent";
+import useIndexedDB from "@/hooks/useIndexedDB";
 import { extractCodeSnippets } from "@/lib/utils/extractCodeSnippets";
+import { extractPythonCode } from "@/lib/utils/extractPythonCode";
 import { StreamParser } from "@/lib/utils/streamParser";
 import config from "@/ollama.config.json";
 import { Conversation } from "@/types/conversations";
 import { GenerateResponse } from "@/types/interfaces";
 
+type Position = { x: number; y: number };
+
 export default function HomePage() {
   const [isClient, setIsClient] = useState<boolean>(false);
   const [configData, setConfigData] = useState(config);
   const [model, setModel] = useState(config.globalSettings.defaultModel);
+  const [visonModel] = useState(config.globalSettings.defaultVision);
   const [tools] = useState(config.defaultTools || []);
   const [toolsEnabled] = useState<boolean>(config.globalSettings.toolsEnabled);
   const [visionEnabled] = useState<boolean>(
@@ -38,12 +44,9 @@ export default function HomePage() {
   const [base64Image, setBase64Image] = useState<string | undefined[]>();
   // Temporary state for the current streaming response
   const [streamedResponse, setStreamedResponse] = useState<string>("");
-  const [context, setContext] = useLocalStorage<number[]>(
-    "home-rag-context",
-    []
-  );
   const [loading, setLoading] = useState(false);
-  const [conversations, setConversations] = useLocalStorage<Conversation[]>(
+  const [context, setContext] = useIndexedDB<number[]>("home-rag-context", []);
+  const [conversations, setConversations] = useIndexedDB<Conversation[]>(
     "home-rag-conversations",
     []
   );
@@ -53,7 +56,7 @@ export default function HomePage() {
   const [activeTab, setActiveTab] = useState<"settings" | "models" | "tools">(
     "models"
   );
-  const [position, setPosition] = useState({ x: -220, y: 0 });
+  const [position, setPosition] = useState<Position>({ x: -220, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -121,7 +124,9 @@ export default function HomePage() {
       setModelDownloaded(defaultModelExists);
 
       if (!defaultModelExists) {
-        alert(`Model ${model} is not available. Please download it first.`);
+        alert(
+          `Model ${model} is not available. Please download it first or change the default model in settings to one that is available.`
+        );
         throw new Error("Default model is not available");
       }
     } catch (error) {
@@ -176,12 +181,43 @@ export default function HomePage() {
     []
   );
 
+  // Utility functions for context filtering
+  const filterContext = useCallback(
+    (context: number[], excludeTokens: number[] = []): number[] => {
+      return Array.from(
+        new Set(context.filter((token) => !excludeTokens.includes(token)))
+      );
+    },
+    []
+  );
+
+  /* const getUserContext = useCallback((): number[] => {
+    return [15339, 11, 856, 836, 374, 379, 263, 50424]; // Static user context tokens
+  }, []);
+  */
+  const getVisionContext = useCallback(
+    (context: number[]): number[] => {
+      return filterContext(context);
+    },
+    [filterContext]
+  );
+
+  const getCurrentContext = useCallback(
+    (context: number[]): number[] => {
+      const visionSpecificTokens = [128256]; // Vision-specific token(s)
+      return filterContext(context, visionSpecificTokens);
+    },
+    [filterContext]
+  );
+
   // Function to send the user's prompt to the API
   const sendPrompt = useCallback(async () => {
     if (!prompt.trim()) return;
     setIsTools(false);
     setLoading(true);
-    const currentContext = Array.from(new Set(context)); // Remove duplicate contexts
+    // const userContext = getUserContext();
+    const visionContext = getVisionContext(context);
+    const currentContext = getCurrentContext(context);
     const currentPrompt = prompt;
     const requestId = uuidv4(); // Generate a unique request ID
 
@@ -210,27 +246,27 @@ export default function HomePage() {
       });
 */
       } else {
-        const result = await fetch("/api/ollama", {
+        const response = await fetch("/api/ollama", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "request-id": requestId, // Add requestId to headers
+            "request-id": requestId,
           },
           body: JSON.stringify({
-            model,
+            model: base64Image ? visonModel : model,
             prompt: currentPrompt,
             images: base64Image ? [base64Image] : [],
-            context: currentContext,
+            context: base64Image ? visionContext : currentContext,
             stream: true,
           }),
         });
 
         // Handle non-streaming response
         if (
-          !result.body ||
-          !result.headers.get("Content-Type")?.includes("application/json")
+          !response.body ||
+          !response.headers.get("Content-Type")?.includes("application/json")
         ) {
-          const responseData = await result.json();
+          const responseData = await response.json();
           if (responseData.error) {
             throw new Error(responseData.error);
           }
@@ -239,8 +275,11 @@ export default function HomePage() {
             ...prev,
             {
               id: uuidv4(),
-              prompt: currentPrompt,
+              prompt,
               response: responseData.response,
+              image: Array.isArray(base64Image)
+                ? base64Image.join(",")
+                : base64Image || null, // Convert array to string or use null
               timestamp: Date.now(),
             },
           ]);
@@ -269,6 +308,9 @@ export default function HomePage() {
                 id: uuidv4(),
                 prompt: currentPrompt,
                 response: fullResponse,
+                image: Array.isArray(base64Image)
+                  ? base64Image.join(",")
+                  : base64Image || null,
                 timestamp: Date.now(),
               },
             ]);
@@ -301,7 +343,7 @@ export default function HomePage() {
           onError
         );
 
-        await parser.parse(result.body!);
+        await parser.parse(response.body!);
       }
     } catch (error) {
       console.error("Error in sendPrompt:", error);
@@ -311,12 +353,15 @@ export default function HomePage() {
     }
   }, [
     prompt,
+    getVisionContext,
     context,
+    getCurrentContext,
     isTools,
     toolsEnabled,
     tools,
-    model,
     base64Image,
+    visonModel,
+    model,
     setConversations,
     scrollToEnd,
     setContext,
@@ -557,6 +602,11 @@ export default function HomePage() {
                           );
                         }
                       )}
+                      <Link href={"/models"}>
+                        <button className="mt-4 rounded-md bg-blue-500 px-3 py-2 font-semibold text-white hover:bg-blue-600 focus:outline-none">
+                          Add Model
+                        </button>
+                      </Link>
                     </div>
                   )}
 
@@ -594,7 +644,10 @@ export default function HomePage() {
         >
           {/* Render each conversation */}
           {conversations.map((conversation, index) => {
-            const snippets = extractCodeSnippets(conversation.response);
+            // console.log("Full response for extraction:", conversation.response);
+            const codeSnippets = extractCodeSnippets(conversation.response);
+            const pythonSnippets = extractPythonCode(conversation.response);
+            // console.log("Python snippets extracted:", pythonSnippets);
             const parts = conversation.response.split(/```[\s\S]*?```/g);
 
             return (
@@ -613,11 +666,20 @@ export default function HomePage() {
                   </button>
                 </div>
 
-                {/* User Prompt */}
+                {/* User Prompt and Image */}
                 <div className="flex items-center justify-end space-x-2">
                   <div className="w-auto max-w-xs break-words rounded-lg bg-blue-500 p-2 text-white shadow-sm sm:p-4 md:max-w-md">
                     {conversation.prompt}
                   </div>
+                  {conversation.image && (
+                    <Image
+                      src={`data:image/png;base64,${conversation.image}`}
+                      alt="Uploaded"
+                      className="rounded-lg shadow-md"
+                      width={150}
+                      height={150}
+                    />
+                  )}
                 </div>
 
                 {/* AI Response */}
@@ -628,10 +690,16 @@ export default function HomePage() {
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                           {part}
                         </ReactMarkdown>
-                        {snippets && snippets[i] && (
+                        {pythonSnippets && pythonSnippets[i] && (
+                          <RunCodeComponent
+                            code={pythonSnippets[i].code}
+                            lang={pythonSnippets[i].language}
+                          />
+                        )}
+                        {codeSnippets && codeSnippets[i] && (
                           <CodeBlockComponent
-                            code={snippets[i].code}
-                            lang={snippets[i].language}
+                            code={codeSnippets[i].code}
+                            lang={codeSnippets[i].language}
                           />
                         )}
                       </div>
@@ -641,7 +709,6 @@ export default function HomePage() {
               </div>
             );
           })}
-
           {/* Streaming Response */}
           {streamedResponse && (
             <div className="self-start">

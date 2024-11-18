@@ -57,10 +57,14 @@ export async function POST(request: NextRequest) {
     if (error && typeof error === "object" && "name" in error) {
       if (error.name === "AbortError") {
         console.log(
-          `Stream for requestId: ${requestId} was aborted due to timeout`
+          `Stream for requestId: ${requestId} was aborted due to timeout \nPlease try restarting ollama, or try again later`
         );
       } else {
-        console.error("An unexpected error occurred:", error);
+        console.error("Connection refused to the model API:", error);
+        return NextResponse.json(
+          { error: "context[] is not compatible" },
+          { status: 503 } // Service Unavailable
+        );
       }
     } else {
       console.error("An unexpected error occurred:", error);

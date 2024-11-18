@@ -2,8 +2,9 @@
 
 import { useState, FormEvent } from "react";
 
-export default function DocumentUploader() {
-  const [documentText, setDocumentText] = useState("");
+export default function TokenizerComponent() {
+  const [inputText, setInputText] = useState("");
+  const [tokens, setTokens] = useState<number[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -13,32 +14,27 @@ export default function DocumentUploader() {
     setMessage("");
 
     try {
-      const response = await fetch("/api/embed", {
+      const response = await fetch("/api/tokenize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "nomic-embed-text",
-          prompt: documentText,
+          model: "llama3.2",
+          text: inputText,
         }),
       });
 
       const data = await response.json();
       if (response.ok) {
-        setMessage(
-          `Document embedded and stored successfully! check console for embeddings.  `
-        );
-
-        console.log("Embedding:", data.embeddings);
-        // TODO: Store embeddings in a vector database (e.g. chroma, Pinecone, Weaviate).
+        setTokens(data.tokens);
+        setMessage("Tokenization successful!");
       } else {
-        throw new Error(data.error || "Failed to generate embeddings");
+        throw new Error(data.error || "Failed to tokenize input");
       }
     } catch (error) {
-      setMessage("Error uploading document.");
+      setMessage("Error during tokenization.");
       console.error("Error:", error);
     } finally {
       setLoading(false);
-      setDocumentText("");
     }
   };
 
@@ -46,13 +42,13 @@ export default function DocumentUploader() {
     <div className="flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-md">
         <h1 className="mb-4 text-center text-2xl font-bold text-gray-700">
-          EmbedDocument
+          Tokenizer
         </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <textarea
-            value={documentText}
-            onChange={(e) => setDocumentText(e.target.value)}
-            placeholder="Enter document content here"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Enter text to tokenize"
             rows={5}
             className="w-full rounded-md border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             required
@@ -64,10 +60,20 @@ export default function DocumentUploader() {
               loading ? "bg-gray-400" : "bg-indigo-600 hover:bg-indigo-700"
             }`}
           >
-            {loading ? "Embedding..." : "Embed your Document"}
+            {loading ? "Tokenizing..." : "Tokenize Text"}
           </button>
         </form>
         {message && <p className="mt-4 text-center text-gray-700">{message}</p>}
+        {tokens && (
+          <div className="mt-4">
+            <h2 className="mb-2 text-center text-xl font-bold text-gray-700">
+              Tokens:
+            </h2>
+            <pre className="h-48 overflow-x-auto rounded bg-gray-100 p-4 text-gray-700">
+              {JSON.stringify(tokens, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
     </div>
   );

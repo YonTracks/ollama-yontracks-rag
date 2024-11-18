@@ -42,7 +42,10 @@ export default function SettingsMenu() {
       if (!response.ok) {
         throw new Error("Failed to update settings");
       }
-      alert("Settings updated successfully!");
+      alert(
+        "Settings updated successfully! reloading page to apply changes. Please wait..."
+      );
+      window.location.reload();
       setDropdownOpen(false);
     } catch (error) {
       console.error("Error updating settings:", error);
@@ -97,6 +100,7 @@ export default function SettingsMenu() {
     };
   }, [handleMouseMove, isDragging]);
 
+  console.log(configData);
   // Render function
   return (
     <div className="relative">
