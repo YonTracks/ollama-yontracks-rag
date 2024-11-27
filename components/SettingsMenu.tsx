@@ -1,11 +1,22 @@
+// components/SettingsMenu.tsx
+
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { FaEllipsisV } from "react-icons/fa";
+import { FaEllipsisV, FaChevronDown } from "react-icons/fa";
 
 import config from "@/ollama.config.json";
 
-export default function SettingsMenu() {
+interface SettingsMenuProps {
+  model: string;
+  onModelSelectAction: (selectedModel: string) => void;
+}
+
+export default function SettingsMenu({
+  model,
+  onModelSelectAction,
+}: SettingsMenuProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"settings" | "models" | "tools">(
     "models"
@@ -42,10 +53,8 @@ export default function SettingsMenu() {
       if (!response.ok) {
         throw new Error("Failed to update settings");
       }
-      alert(
-        "Settings updated successfully! reloading page to apply changes. Please wait..."
-      );
-      window.location.reload();
+      alert("Settings updated successfully!");
+
       setDropdownOpen(false);
     } catch (error) {
       console.error("Error updating settings:", error);
@@ -54,6 +63,7 @@ export default function SettingsMenu() {
 
   // Handle model selection
   const handleModelSelect = (selectedModel: string) => {
+    // Update configData
     setConfigData({
       ...configData,
       globalSettings: {
@@ -61,6 +71,10 @@ export default function SettingsMenu() {
         defaultModel: selectedModel,
       },
     });
+
+    // Call the onModelSelectAction prop to inform parent component
+    onModelSelectAction(selectedModel);
+    setDropdownOpen(false);
   };
 
   // Mouse events for dragging
@@ -100,15 +114,15 @@ export default function SettingsMenu() {
     };
   }, [handleMouseMove, isDragging]);
 
-  console.log(configData);
   // Render function
   return (
     <div className="relative">
       <button
-        className="rounded-full p-2 hover:bg-gray-200 focus:outline-none"
+        className="flex items-center rounded-full p-2 shadow-sm hover:bg-gray-200 focus:outline-none"
         onClick={() => setDropdownOpen(!dropdownOpen)}
       >
-        <FaEllipsisV />
+        {model ? <span>{model}</span> : <FaEllipsisV />}
+        <FaChevronDown className="ml-2" />
       </button>
 
       {dropdownOpen && (
@@ -177,14 +191,14 @@ export default function SettingsMenu() {
                   API Endpoint:
                   <input
                     type="text"
-                    className="mt-1 w-full rounded-md border border-gray-300 p-2"
-                    value={configData.globalSettings.apiEndpoint}
+                    className="mt-1 w-full rounded-md border border-gray-300 bg-white p-2"
+                    value={configData.globalSettings.apiBase}
                     onChange={(e) =>
                       setConfigData({
                         ...configData,
                         globalSettings: {
                           ...configData.globalSettings,
-                          apiEndpoint: e.target.value,
+                          apiBase: e.target.value,
                         },
                       })
                     }
@@ -194,7 +208,7 @@ export default function SettingsMenu() {
                   Default Model:
                   <input
                     type="text"
-                    className="mt-1 w-full rounded-md border border-gray-300 p-2"
+                    className="mt-1 w-full rounded-md border border-gray-300 bg-white p-2"
                     value={configData.globalSettings.defaultModel}
                     onChange={(e) =>
                       setConfigData({
@@ -218,18 +232,29 @@ export default function SettingsMenu() {
 
             {activeTab === "models" && configData && (
               <div>
-                {configData.models.map((modelConfig: object, index: number) => {
-                  const modelName = Object.keys(modelConfig)[0];
+                {configData.models.map((modelConfig, index) => {
+                  const modelName = modelConfig.name;
+                  const modelIdentifier = modelConfig.model;
                   return (
                     <button
                       key={index}
-                      className={`w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100`}
-                      onClick={() => handleModelSelect(modelName)}
+                      className={`w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 ${
+                        modelIdentifier === model ? "bg-gray-200" : ""
+                      }`}
+                      onClick={() => {
+                        handleModelSelect(modelIdentifier);
+                        alert(`Model selected: ${modelName}!`);
+                      }}
                     >
                       {modelName}
                     </button>
                   );
                 })}
+                <Link href={"/models"}>
+                  <button className="mt-4 rounded-md bg-blue-500 px-3 py-2 font-semibold text-white hover:bg-blue-600 focus:outline-none">
+                    Add Model
+                  </button>
+                </Link>
               </div>
             )}
 

@@ -1,7 +1,7 @@
 {
   "version": "1.0",
   "globalSettings": {
-    "apiEndpoint": "http://localhost:11434",
+    "apiBase": "http://localhost:11434",
     "defaultModel": "llama3.1",
     "defaultVision": "llava-llama3",
     "defaultEmbed": "nomic-embed-text",
@@ -10,7 +10,48 @@
     "timeout": 30000,
     "stream": true
   },
-  "models": [],
+  "models": [
+    {
+      "model": "llava:latest",
+      "name": "llava",
+      "description": "Description for llava:latest",
+      "settings": {
+        "temperature": 0.7,
+        "num_ctx": 2048,
+        "stream": true
+      }
+    },
+    {
+      "model": "llama3.1:latest",
+      "name": "llama3.1:latest",
+      "description": "Description for llama3.1:latest",
+      "settings": {
+        "temperature": 0.7,
+        "num_ctx": 2048,
+        "stream": true
+      }
+    },
+    {
+      "model": "llama3.2-mario:latest",
+      "name": "llama3.2-mario",
+      "description": "Description for llama3.2-mario:latest",
+      "settings": {
+        "temperature": 0.7,
+        "num_ctx": 2048,
+        "stream": true
+      }
+    },
+    {
+      "model": "llama3.1-code:latest",
+      "name": "llama3.1-code",
+      "description": "Description for llama3.1-code:latest",
+      "settings": {
+        "temperature": 0.7,
+        "num_ctx": 2048,
+        "stream": true
+      }
+    }
+  ],
   "defaultTools": [
     {
       "type": "function",
@@ -31,7 +72,10 @@
               "description": "The arrival city (airport code)"
             }
           },
-          "required": ["departure", "arrival"],
+          "required": [
+            "departure",
+            "arrival"
+          ],
           "additionalProperties": false
         }
       }
@@ -51,7 +95,9 @@
               "description": "The name of the city"
             }
           },
-          "required": ["city"],
+          "required": [
+            "city"
+          ],
           "additionalProperties": false
         }
       }

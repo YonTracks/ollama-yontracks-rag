@@ -2,16 +2,21 @@
 
 "use client";
 
-import Link from "next/link";
 import React, { useEffect, useState, useCallback, useMemo } from "react";
-import { FaChevronDown, FaChevronUp, FaEdit, FaTrashAlt } from "react-icons/fa";
+import {
+  FaChevronDown,
+  FaChevronUp,
+  FaEdit,
+  FaSearch,
+  FaTrashAlt,
+} from "react-icons/fa";
 
 import { formatSize, formatDate } from "@/lib/utils/format";
 import config from "@/ollama.config.json";
 
 interface Model {
   name: string;
-  size: string;
+  size: number;
 }
 
 interface CurrentModel {
@@ -46,6 +51,7 @@ SYSTEM """You are Mario from Super Mario Bros. Answer as Mario, the assistant, o
   `);
   const [isModelsDropdownOpen, setIsModelsDropdownOpen] = useState(false);
   const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const fetchModels = useCallback(async () => {
     try {
@@ -109,11 +115,10 @@ SYSTEM """You are Mario from Super Mario Bros. Answer as Mario, the assistant, o
       models: [
         ...configData.models,
         {
-          [name]: {
-            name: `${name}`,
-            description: `Description for ${name}`,
-            settings: { temperature: 0.7, num_ctx: 2048, stream: true },
-          },
+          model: name,
+          name: name.split(":")[0], // Use the part before ':' as the display name
+          description: `Description for ${name}`,
+          settings: { temperature: 0.7, num_ctx: 2048, stream: true },
         },
       ],
     };
@@ -153,10 +158,12 @@ SYSTEM """You are Mario from Super Mario Bros. Answer as Mario, the assistant, o
       // Remove the model from the local config data
       const updatedConfigData = {
         ...configData,
-        models: configData.models.filter((model) => !model[name]),
+        models: configData.models.filter(
+          (modelConfig) => modelConfig.model !== name
+        ),
       };
 
-      //  Update the config file with the modified model list
+      // Update the config file with the modified model list
       const configResponse = await fetch("/api/settings", {
         method: "POST",
         headers: {
@@ -185,19 +192,27 @@ SYSTEM """You are Mario from Super Mario Bros. Answer as Mario, the assistant, o
     [lastSelectedModel]
   );
 
-  // Helper to check if a model is already in the config
+  const filteredModels = useMemo(() => {
+    return models.filter((model) =>
+      model.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [models, searchQuery]);
+
   const isModelInConfig = (modelName: string) => {
-    return configData.models.some((model) => model[modelName]);
+    return configData.models.some(
+      (modelConfig) => modelConfig.model === modelName
+    );
   };
 
   return (
     <div className="mx-auto flex max-w-screen-xl flex-col items-center p-4">
-      <h1 className="mb-4 text-3xl font-semibold ">Models</h1>
+      <h1 className="mb-4 text-3xl font-semibold">Models</h1>
 
       {/* Create Model Section */}
       <button
         onClick={() => setIsCreateDropdownOpen(!isCreateDropdownOpen)}
-        className="mt-4 flex w-full max-w-3xl items-center justify-center rounded bg-blue-500 p-3 font-semibold text-white hover:bg-blue-600"
+        className="mt-4 flex w-full max-w-3xl items-center justify-center rounded-full bg-blue-500 p-3 font-semibold text-white hover:bg-blue-600"
+        title="Create a new model"
       >
         {isCreateDropdownOpen ? (
           <>
@@ -223,16 +238,19 @@ SYSTEM """You are Mario from Super Mario Bros. Answer as Mario, the assistant, o
               placeholder="Modelfile content"
               className="w-full rounded border border-gray-300 p-3 shadow-sm"
               rows={5}
+              title="Enter the modelfile content here"
             />
             <input
               value={createModelName}
               onChange={(e) => setCreateModelName(e.target.value)}
               placeholder="Model Name"
               className="w-full rounded border border-gray-300 p-3 shadow-sm"
+              title="Enter a name for the new model"
             />
             <button
               onClick={createModel}
               className="w-full rounded bg-green-500 p-3 font-semibold text-white hover:bg-green-600"
+              title="Create the new model with the specified name and content"
             >
               Create Model
             </button>
@@ -242,11 +260,14 @@ SYSTEM """You are Mario from Super Mario Bros. Answer as Mario, the assistant, o
 
       {/* Current Model Display */}
       {currentModel && (
-        <div className="my-6 w-full max-w-3xl rounded-lg bg-white p-6 shadow-lg">
+        <div
+          className="my-6 w-full max-w-3xl rounded-xl bg-white p-6 shadow-lg"
+          title="Details about the currently loaded model"
+        >
           <h2 className="mb-4 text-center text-xl font-bold text-gray-700">
             Current Loaded Model
           </h2>
-          <div className="grid grid-cols-2 gap-4 text-gray-700">
+          <div className="grid grid-cols-2 gap-2 text-gray-700">
             <p>
               <strong>Name:</strong> {currentModel.name}
             </p>
@@ -266,7 +287,8 @@ SYSTEM """You are Mario from Super Mario Bros. Answer as Mario, the assistant, o
       {/* Models List and Actions */}
       <button
         onClick={() => setIsModelsDropdownOpen(!isModelsDropdownOpen)}
-        className="mt-4 flex w-full max-w-3xl items-center justify-center rounded bg-blue-500 p-3 font-semibold text-white hover:bg-blue-600"
+        className="mt-4 flex w-full max-w-3xl items-center justify-center rounded-full bg-blue-500 p-3 font-semibold text-white hover:bg-blue-600"
+        title="Toggle the list of available models"
       >
         {isModelsDropdownOpen ? (
           <>
@@ -280,55 +302,77 @@ SYSTEM """You are Mario from Super Mario Bros. Answer as Mario, the assistant, o
       </button>
 
       {isModelsDropdownOpen && (
-        <ul className="mt-6 grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {models.map((model) => (
-            <li
-              key={model.name}
-              className="rounded-lg bg-gray-100 p-4 shadow-md transition hover:bg-gray-200"
-            >
-              <Link
-                href={`models/${model.name}`}
-                className="flex h-full flex-col justify-between"
+        <>
+          {/* Search Bar */}
+          <div className="m-2 flex w-full max-w-3xl items-center space-x-2 rounded-full bg-gray-100 p-3 shadow-md">
+            <FaSearch className="text-gray-500" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search models..."
+              className="w-full rounded border border-gray-300 bg-white p-2 text-black shadow-sm focus:outline-none focus:ring focus:ring-blue-300"
+              title="Search through available models by name or description"
+            />
+          </div>
+
+          <ul className="mt-6 grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredModels.map((model) => (
+              <li
+                key={model.name}
+                className="rounded-lg bg-gray-100 p-4 shadow-md transition hover:bg-gray-200"
+                title={`Manage options for the model: ${model.name}`}
               >
-                <span className="mb-4 text-lg font-semibold text-gray-800">
-                  {model.name}
-                </span>
-                <div className="mt-auto flex justify-between">
-                  {isModelInConfig(model.name) ? (
-                    <span className="font-semibold text-green-500">Added</span>
-                  ) : (
+                <div className="flex h-full flex-col justify-between">
+                  <span className="mb-4 text-lg font-semibold text-gray-800">
+                    {model.name}
+                  </span>
+                  <div className="mt-auto flex justify-between">
+                    {isModelInConfig(model.name) ? (
+                      <span
+                        className="font-semibold text-green-500"
+                        title="This model is already added"
+                      >
+                        Added
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          addModel(model.name);
+                        }}
+                        className="rounded bg-green-500 px-3 py-1 text-white hover:bg-green-600"
+                        title="Add downloaded model"
+                      >
+                        Add
+                      </button>
+                    )}
                     <button
                       onClick={(e) => {
                         e.preventDefault();
-                        addModel(model.name);
+                        removeModel(model.name);
                       }}
-                      className="rounded bg-green-500 px-3 py-1 text-white hover:bg-green-600"
+                      className="rounded bg-red-500 px-3 py-1 text-white hover:bg-red-600"
+                      title="Delete downloaded model"
                     >
-                      Add
+                      <FaTrashAlt size={18} />
                     </button>
-                  )}
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      removeModel(model.name);
-                    }}
-                    className="rounded bg-red-500 px-3 py-1 text-white hover:bg-red-600"
-                  >
-                    <FaTrashAlt size={18} />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                    }}
-                    className="rounded bg-blue-500 px-3 py-1 text-white hover:bg-blue-600"
-                  >
-                    <FaEdit size={18} />
-                  </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        // Implement edit functionality if needed
+                      }}
+                      className="rounded bg-blue-500 px-3 py-1 text-white hover:bg-blue-600"
+                      title="Edit this model's details"
+                    >
+                      <FaEdit size={18} />
+                    </button>
+                  </div>
                 </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

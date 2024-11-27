@@ -3,7 +3,6 @@
 "use client";
 
 import Image from "next/image";
-import Link from "next/link";
 import {
   useState,
   useEffect,
@@ -11,7 +10,7 @@ import {
   useCallback,
   useLayoutEffect,
 } from "react";
-import { FaTrashAlt, FaEllipsisV, FaUpload } from "react-icons/fa";
+import { FaTrashAlt, FaUpload } from "react-icons/fa";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { v4 as uuidv4 } from "uuid";
@@ -19,6 +18,7 @@ import { v4 as uuidv4 } from "uuid";
 import CodeBlockComponent from "@/components/CodeBlockComponent";
 import PromptList from "@/components/PromptList";
 import RunCodeComponent from "@/components/RunCodeComponent";
+import SettingsMenu from "@/components/SettingsMenu";
 import useIndexedDB from "@/hooks/useIndexedDB";
 import { extractCodeSnippets } from "@/lib/utils/extractCodeSnippets";
 import { extractPythonCode } from "@/lib/utils/extractPythonCode";
@@ -31,9 +31,9 @@ type Position = { x: number; y: number };
 
 export default function HomePage() {
   const [isClient, setIsClient] = useState<boolean>(false);
-  const [configData, setConfigData] = useState(config);
+  const [, setConfigData] = useState(config);
   const [model, setModel] = useState(config.globalSettings.defaultModel);
-  const [visonModel] = useState(config.globalSettings.defaultVision);
+  // const [visonModel] = useState(config.globalSettings.defaultVision);
   const [tools] = useState(config.defaultTools || []);
   const [toolsEnabled] = useState<boolean>(config.globalSettings.toolsEnabled);
   const [visionEnabled] = useState<boolean>(
@@ -52,11 +52,8 @@ export default function HomePage() {
   );
   const [isStreaming, setIsStreaming] = useState(false);
   const [modelDownloaded, setModelDownloaded] = useState(false);
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"settings" | "models" | "tools">(
-    "models"
-  );
-  const [position, setPosition] = useState<Position>({ x: -220, y: 0 });
+  const [, setDropdownOpen] = useState(false);
+  const [, setPosition] = useState<Position>({ x: -220, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
@@ -85,26 +82,6 @@ export default function HomePage() {
     };
     fetchConfig();
   }, []);
-
-  // Handle form submission to update settings
-  const handleSettingsUpdate = async () => {
-    try {
-      const response = await fetch("/api/settings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(configData),
-      });
-      if (!response.ok) {
-        throw new Error("Failed to update settings");
-      }
-      alert("Settings updated successfully!");
-      setDropdownOpen(false);
-    } catch (error) {
-      console.error("Error updating settings:", error);
-    }
-  };
 
   // Fetch available models and check if the default model is downloaded
   const fetchModels = useCallback(async () => {
@@ -194,14 +171,14 @@ export default function HomePage() {
   /* const getUserContext = useCallback((): number[] => {
     return [15339, 11, 856, 836, 374, 379, 263, 50424]; // Static user context tokens
   }, []);
-  */
+  
   const getVisionContext = useCallback(
     (context: number[]): number[] => {
       return filterContext(context);
     },
     [filterContext]
   );
-
+*/
   const getCurrentContext = useCallback(
     (context: number[]): number[] => {
       const visionSpecificTokens = [128256]; // Vision-specific token(s)
@@ -216,7 +193,7 @@ export default function HomePage() {
     setIsTools(false);
     setLoading(true);
     // const userContext = getUserContext();
-    const visionContext = getVisionContext(context);
+    // const visionContext = getVisionContext(context);
     const currentContext = getCurrentContext(context);
     const currentPrompt = prompt;
     const requestId = uuidv4(); // Generate a unique request ID
@@ -253,10 +230,10 @@ export default function HomePage() {
             "request-id": requestId,
           },
           body: JSON.stringify({
-            model: base64Image ? visonModel : model,
+            model,
             prompt: currentPrompt,
             images: base64Image ? [base64Image] : [],
-            context: base64Image ? visionContext : currentContext,
+            context: currentContext,
             stream: true,
           }),
         });
@@ -353,14 +330,12 @@ export default function HomePage() {
     }
   }, [
     prompt,
-    getVisionContext,
     context,
     getCurrentContext,
     isTools,
     toolsEnabled,
     tools,
     base64Image,
-    visonModel,
     model,
     setConversations,
     scrollToEnd,
@@ -393,15 +368,6 @@ export default function HomePage() {
     return () => textarea?.removeEventListener("keydown", handleKeyDown);
   }, [sendPrompt]);
 
-  // Mouse events for dragging
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    dragStartPosition.current = {
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
-    };
-  };
-
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (isDragging) {
@@ -431,11 +397,6 @@ export default function HomePage() {
     };
   }, [handleMouseMove, isDragging]);
 
-  // Toggle dropdown visibility
-  const toggleDropdown = () => {
-    setDropdownOpen(!dropdownOpen);
-  };
-
   // Function to select model
   const handleModelSelect = (selectedModel: string) => {
     setModel(selectedModel);
@@ -463,7 +424,7 @@ export default function HomePage() {
       <div className="m-2 flex w-full max-w-full flex-col space-y-4 rounded-lg p-4 shadow-md sm:m-4 sm:max-w-4xl sm:p-6">
         <div className="mb-4 flex justify-between">
           <button
-            className="rounded-md bg-green-500 px-3 py-2 font-semibold text-white hover:bg-green-600 focus:outline-none focus:ring focus:ring-green-300 sm:px-4"
+            className="rounded-full bg-green-500 px-3 py-2 font-semibold text-white hover:bg-green-600 focus:outline-none focus:ring focus:ring-green-300 sm:px-4"
             onClick={() => {
               // Reset position on New Chat
               setPosition({ x: -220, y: 0 });
@@ -473,162 +434,7 @@ export default function HomePage() {
             New Chat
           </button>
 
-          <div className="relative">
-            <button
-              className="rounded-full p-2 hover:bg-gray-200 focus:outline-none"
-              onClick={toggleDropdown}
-            >
-              <FaEllipsisV />
-            </button>
-
-            {dropdownOpen && (
-              <div
-                className="absolute z-50 mt-2 w-64 resize rounded-md border border-gray-200 bg-white shadow-lg"
-                style={{
-                  top: `${position.y}px`,
-                  left: `${position.x}px`,
-                  resize: "both",
-                  overflow: "auto",
-                }}
-              >
-                {/* Title bar for dragging */}
-                <div
-                  className="flex cursor-move items-center justify-between bg-gray-100 p-2"
-                  onMouseDown={handleMouseDown}
-                >
-                  <span className="font-semibold text-gray-700">Menu</span>
-                  <button
-                    onClick={() => setDropdownOpen(false)}
-                    className="px-2 text-black hover:text-gray-400"
-                  >
-                    X
-                  </button>
-                </div>
-
-                {/* Tabs */}
-                <div className="flex justify-around border-b border-gray-200">
-                  <button
-                    className={`w-1/3 py-2 ${
-                      activeTab === "settings"
-                        ? "border-b-2 border-blue-500 text-blue-500"
-                        : "text-gray-700"
-                    }`}
-                    onClick={() => setActiveTab("settings")}
-                  >
-                    Settings
-                  </button>
-                  <button
-                    className={`w-1/3 py-2 ${
-                      activeTab === "models"
-                        ? "border-b-2 border-blue-500 text-blue-500"
-                        : "text-gray-700"
-                    }`}
-                    onClick={() => setActiveTab("models")}
-                  >
-                    Models
-                  </button>
-                  <button
-                    className={`w-1/3 py-2 ${
-                      activeTab === "tools"
-                        ? "border-b-2 border-blue-500 text-blue-500"
-                        : "text-gray-700"
-                    }`}
-                    onClick={() => setActiveTab("tools")}
-                  >
-                    Tools
-                  </button>
-                </div>
-
-                {/* Content */}
-                <div className="p-4">
-                  {activeTab === "settings" && configData && (
-                    <div>
-                      <label className="block text-gray-700">
-                        API Endpoint:
-                        <input
-                          type="text"
-                          className="mt-1 w-full rounded-md border border-gray-300 p-2"
-                          value={configData.globalSettings.apiEndpoint}
-                          onChange={(e) =>
-                            setConfigData({
-                              ...configData,
-                              globalSettings: {
-                                ...configData.globalSettings,
-                                apiEndpoint: e.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                      <label className="block text-gray-700">
-                        Default Model:
-                        <input
-                          type="text"
-                          className="mt-1 w-full rounded-md border border-gray-300 p-2"
-                          value={configData.globalSettings.defaultModel}
-                          onChange={(e) =>
-                            setConfigData({
-                              ...configData,
-                              globalSettings: {
-                                ...configData.globalSettings,
-                                defaultModel: e.target.value,
-                              },
-                            })
-                          }
-                        />
-                      </label>
-                      <button
-                        className="mt-4 rounded-md bg-blue-500 px-3 py-2 font-semibold text-white hover:bg-blue-600 focus:outline-none"
-                        onClick={handleSettingsUpdate}
-                      >
-                        Save Settings
-                      </button>
-                    </div>
-                  )}
-
-                  {activeTab === "models" && configData && (
-                    <div>
-                      {configData.models.map(
-                        (modelConfig: object, index: number) => {
-                          const modelName = Object.keys(modelConfig)[0];
-                          return (
-                            <button
-                              key={index}
-                              className={`w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100`}
-                              onClick={() => handleModelSelect(modelName)}
-                            >
-                              {modelName}
-                            </button>
-                          );
-                        }
-                      )}
-                      <Link href={"/models"}>
-                        <button className="mt-4 rounded-md bg-blue-500 px-3 py-2 font-semibold text-white hover:bg-blue-600 focus:outline-none">
-                          Add Model
-                        </button>
-                      </Link>
-                    </div>
-                  )}
-
-                  {activeTab === "tools" && configData && (
-                    <div>
-                      {configData.defaultTools.length > 0 ? (
-                        configData.defaultTools.map((c, i) => (
-                          <div key={i} className="mb-4 ">
-                            <p className="font-semibold text-gray-700">
-                              {c.functionName}
-                            </p>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-gray-700">No tools configured.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
+          <SettingsMenu model={model} onModelSelectAction={handleModelSelect} />
         </div>
 
         {/* Prompt List when no conversations */}
@@ -785,7 +591,7 @@ export default function HomePage() {
           {/* Send or Stop Button */}
           {!isStreaming ? (
             <button
-              className="rounded-md bg-blue-500 px-3 py-2 font-semibold text-white shadow hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300 sm:px-4"
+              className="rounded-lg bg-blue-500 px-3 py-2 font-semibold text-white shadow hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300 sm:px-4"
               onClick={sendPrompt}
               disabled={loading || !modelDownloaded}
             >
@@ -793,7 +599,7 @@ export default function HomePage() {
             </button>
           ) : (
             <button
-              className="rounded-md bg-red-500 px-3 py-2 font-semibold text-white shadow hover:bg-red-600 focus:outline-none focus:ring focus:ring-red-300 sm:px-4"
+              className="rounded-lg bg-red-500 px-3 py-2 font-semibold text-white shadow hover:bg-red-600 focus:outline-none focus:ring focus:ring-red-300 sm:px-4"
               onClick={stopStream}
             >
               Stop
