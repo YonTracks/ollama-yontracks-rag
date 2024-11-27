@@ -12,39 +12,9 @@
   },
   "models": [
     {
-      "model": "llava:latest",
-      "name": "llava",
-      "description": "Description for llava:latest",
-      "settings": {
-        "temperature": 0.7,
-        "num_ctx": 2048,
-        "stream": true
-      }
-    },
-    {
       "model": "llama3.1:latest",
-      "name": "llama3.1:latest",
+      "name": "llama3.1",
       "description": "Description for llama3.1:latest",
-      "settings": {
-        "temperature": 0.7,
-        "num_ctx": 2048,
-        "stream": true
-      }
-    },
-    {
-      "model": "llama3.2-mario:latest",
-      "name": "llama3.2-mario",
-      "description": "Description for llama3.2-mario:latest",
-      "settings": {
-        "temperature": 0.7,
-        "num_ctx": 2048,
-        "stream": true
-      }
-    },
-    {
-      "model": "llama3.1-code:latest",
-      "name": "llama3.1-code",
-      "description": "Description for llama3.1-code:latest",
       "settings": {
         "temperature": 0.7,
         "num_ctx": 2048,
