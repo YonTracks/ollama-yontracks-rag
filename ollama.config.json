@@ -20,16 +20,6 @@
         "num_ctx": 2048,
         "stream": true
       }
-    },
-    {
-      "model": "llama3.2-vision:latest",
-      "name": "llama3.2-vision",
-      "description": "Description for llama3.2-vision:latest",
-      "settings": {
-        "temperature": 0.7,
-        "num_ctx": 2048,
-        "stream": true
-      }
     }
   ],
   "defaultTools": [
@@ -52,10 +42,7 @@
               "description": "The arrival city (airport code)"
             }
           },
-          "required": [
-            "departure",
-            "arrival"
-          ],
+          "required": ["departure", "arrival"],
           "additionalProperties": false
         }
       }
@@ -75,9 +62,7 @@
               "description": "The name of the city"
             }
           },
-          "required": [
-            "city"
-          ],
+          "required": ["city"],
           "additionalProperties": false
         }
       }
