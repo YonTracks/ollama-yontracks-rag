@@ -3,6 +3,7 @@
 "use client";
 
 import Link from "next/link";
+import { Tool } from "ollama";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { FaEllipsisV, FaChevronDown } from "react-icons/fa";
 
@@ -26,21 +27,45 @@ export default function SettingsMenu({
   const dragStartPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [configData, setConfigData] = useState(config);
 
+  // Track selected tools
+  const [selectedTools, setSelectedTools] = useState<string[]>([]);
+
   // Fetch the configuration data from the API
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         const response = await fetch("/api/settings");
+        if (!response.ok) throw new Error(`Error: ${response.status}`);
         const data = await response.json();
         setConfigData(data);
+        setSelectedTools(data.defaultTools.map((tool: Tool) => tool.function));
       } catch (error) {
         console.error("Error fetching config:", error);
+        alert("Failed to fetch configuration.");
       }
     };
     fetchConfig();
   }, []);
 
-  // Handle form submission to update settings
+  useEffect(() => {
+    const toolsEnabled = selectedTools.length > 0;
+    setConfigData((prev) => ({
+      ...prev,
+      globalSettings: {
+        ...prev.globalSettings,
+        toolsEnabled,
+      },
+    }));
+  }, [selectedTools]);
+
+  const handleToolCheckboxChange = (toolName: string) => {
+    setSelectedTools((prev) =>
+      prev.includes(toolName)
+        ? prev.filter((name) => name !== toolName)
+        : [...prev, toolName]
+    );
+  };
+
   const handleSettingsUpdate = async () => {
     try {
       const response = await fetch("/api/settings", {
@@ -50,20 +75,27 @@ export default function SettingsMenu({
         },
         body: JSON.stringify(configData),
       });
-      if (!response.ok) {
-        throw new Error("Failed to update settings");
-      }
+      if (!response.ok) throw new Error("Failed to update settings");
       alert("Settings updated successfully!");
-
       setDropdownOpen(false);
     } catch (error) {
       console.error("Error updating settings:", error);
+      alert("Failed to update settings. Please try again.");
     }
   };
 
-  // Handle model selection
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (isDragging) {
+        const newX = Math.max(0, e.clientX - dragStartPosition.current.x);
+        const newY = Math.max(0, e.clientY - dragStartPosition.current.y);
+        setPosition({ x: newX, y: newY });
+      }
+    },
+    [isDragging]
+  );
+
   const handleModelSelect = (selectedModel: string) => {
-    // Update configData
     setConfigData({
       ...configData,
       globalSettings: {
@@ -71,13 +103,10 @@ export default function SettingsMenu({
         defaultModel: selectedModel,
       },
     });
-
-    // Call the onModelSelectAction prop to inform parent component
     onModelSelectAction(selectedModel);
     setDropdownOpen(false);
   };
 
-  // Mouse events for dragging
   const handleMouseDown = (e: React.MouseEvent) => {
     setIsDragging(true);
     dragStartPosition.current = {
@@ -85,17 +114,6 @@ export default function SettingsMenu({
       y: e.clientY - position.y,
     };
   };
-
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (isDragging) {
-        const newX = e.clientX - dragStartPosition.current.x;
-        const newY = e.clientY - dragStartPosition.current.y;
-        setPosition({ x: newX, y: newY });
-      }
-    },
-    [isDragging]
-  );
 
   const handleMouseUp = () => setIsDragging(false);
 
@@ -114,7 +132,6 @@ export default function SettingsMenu({
     };
   }, [handleMouseMove, isDragging]);
 
-  // Render function
   return (
     <div className="relative">
       <button
@@ -135,7 +152,6 @@ export default function SettingsMenu({
             overflow: "auto",
           }}
         >
-          {/* Title bar for dragging */}
           <div
             className="flex cursor-move items-center justify-between bg-gray-100 p-2"
             onMouseDown={handleMouseDown}
@@ -149,7 +165,6 @@ export default function SettingsMenu({
             </button>
           </div>
 
-          {/* Tabs */}
           <div className="flex justify-around border-b border-gray-200">
             <button
               className={`w-1/3 py-2 ${
@@ -183,9 +198,8 @@ export default function SettingsMenu({
             </button>
           </div>
 
-          {/* Content */}
           <div className="p-4">
-            {activeTab === "settings" && configData && (
+            {activeTab === "settings" && (
               <div>
                 <label className="block text-gray-700">
                   API Endpoint:
@@ -230,26 +244,19 @@ export default function SettingsMenu({
               </div>
             )}
 
-            {activeTab === "models" && configData && (
+            {activeTab === "models" && (
               <div>
-                {configData.models.map((modelConfig, index) => {
-                  const modelName = modelConfig.name;
-                  const modelIdentifier = modelConfig.model;
-                  return (
-                    <button
-                      key={index}
-                      className={`w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 ${
-                        modelIdentifier === model ? "bg-gray-200" : ""
-                      }`}
-                      onClick={() => {
-                        handleModelSelect(modelIdentifier);
-                        alert(`Model selected: ${modelName}!`);
-                      }}
-                    >
-                      {modelName}
-                    </button>
-                  );
-                })}
+                {configData.models.map((modelConfig, index) => (
+                  <button
+                    key={index}
+                    className={`w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 ${
+                      modelConfig.model === model ? "bg-gray-200" : ""
+                    }`}
+                    onClick={() => handleModelSelect(modelConfig.model)}
+                  >
+                    {modelConfig.name}
+                  </button>
+                ))}
                 <Link href={"/models"}>
                   <button className="mt-4 rounded-md bg-blue-500 px-3 py-2 font-semibold text-white hover:bg-blue-600 focus:outline-none">
                     Add Model
@@ -258,19 +265,32 @@ export default function SettingsMenu({
               </div>
             )}
 
-            {activeTab === "tools" && configData && (
+            {activeTab === "tools" && (
               <div>
                 {configData.defaultTools.length > 0 ? (
-                  configData.defaultTools.map((c, i) => (
-                    <div key={i} className="mb-4 ">
-                      <p className="font-semibold text-gray-700">
-                        {c.functionName}
-                      </p>
+                  configData.defaultTools.map((tool, index) => (
+                    <div key={index} className="mb-4 flex items-center">
+                      <input
+                        type="checkbox"
+                        checked={selectedTools.includes(tool.functionName)}
+                        onChange={() =>
+                          handleToolCheckboxChange(tool.functionName)
+                        }
+                        className="mr-2 "
+                      />
+                      <label className="text-gray-700">
+                        {tool.functionName}
+                      </label>
                     </div>
                   ))
                 ) : (
                   <p className="text-gray-700">No tools configured.</p>
                 )}
+                <Link href={"/tools"}>
+                  <button className="mt-4 rounded-md bg-blue-500 px-3 py-2 font-semibold text-white hover:bg-blue-600 focus:outline-none">
+                    Add Tool
+                  </button>
+                </Link>
               </div>
             )}
           </div>
