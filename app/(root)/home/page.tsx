@@ -3,6 +3,7 @@
 "use client";
 
 import Image from "next/image";
+import { ChatResponse } from "ollama";
 import {
   useState,
   useEffect,
@@ -25,7 +26,6 @@ import { extractPythonCode } from "@/lib/utils/extractPythonCode";
 import { StreamParser } from "@/lib/utils/streamParser";
 import config from "@/ollama.config.json";
 import { Conversation } from "@/types/conversations";
-import { GenerateResponse } from "@/types/interfaces";
 
 type Position = { x: number; y: number };
 
@@ -33,15 +33,11 @@ export default function HomePage() {
   const [isClient, setIsClient] = useState<boolean>(false);
   const [, setConfigData] = useState(config);
   const [model, setModel] = useState(config.globalSettings.defaultModel);
-  // const [visonModel] = useState(config.globalSettings.defaultVision);
-  const [tools] = useState(config.defaultTools || []);
-  const [toolsEnabled] = useState<boolean>(config.globalSettings.toolsEnabled);
   const [visionEnabled] = useState<boolean>(
     config.globalSettings.visionEnabled
   );
-  const [isTools, setIsTools] = useState<boolean>(false);
   const [prompt, setPrompt] = useState("");
-  const [base64Image, setBase64Image] = useState<string | undefined[]>();
+  const [base64Image, setBase64Image] = useState<string | null>();
   // Temporary state for the current streaming response
   const [streamedResponse, setStreamedResponse] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -142,7 +138,7 @@ export default function HomePage() {
   }, [model]);
 
   const handleImageUpload = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
+    (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
 
@@ -158,56 +154,48 @@ export default function HomePage() {
     []
   );
 
-  // Utility functions for context filtering
-  const filterContext = useCallback(
-    (context: number[], excludeTokens: number[] = []): number[] => {
-      return Array.from(
-        new Set(context.filter((token) => !excludeTokens.includes(token)))
-      );
-    },
-    []
-  );
+  const clearImage = () => setBase64Image(null);
 
-  /* const getUserContext = useCallback((): number[] => {
-    return [15339, 11, 856, 836, 374, 379, 263, 50424]; // Static user context tokens
-  }, []);
-  
-  const getVisionContext = useCallback(
-    (context: number[]): number[] => {
-      return filterContext(context);
-    },
-    [filterContext]
-  );
-*/
-  const getCurrentContext = useCallback(
-    (context: number[]): number[] => {
-      const visionSpecificTokens = [128256]; // Vision-specific token(s)
-      return filterContext(context, visionSpecificTokens);
-    },
-    [filterContext]
-  );
+  const constructMessages = useCallback(() => {
+    return [
+      ...conversations.map((conv) => ({
+        role: "user",
+        content: conv.prompt,
+      })),
+      ...conversations.map((conv) => ({
+        role: "assistant",
+        content: conv.response,
+      })),
+      {
+        role: "user",
+        content: prompt,
+        ...(base64Image && { images: [base64Image] }),
+      },
+    ];
+  }, [conversations, prompt, base64Image]);
 
   // Function to send the user's prompt to the API
   const sendPrompt = useCallback(async () => {
-    if (!prompt.trim()) return;
-    setIsTools(false);
-    setLoading(true);
-    // const userContext = getUserContext();
-    // const visionContext = getVisionContext(context);
-    const currentContext = getCurrentContext(context);
-    const currentPrompt = prompt;
-    const requestId = uuidv4(); // Generate a unique request ID
+    if (!prompt.trim() && !base64Image) {
+      console.log("Prompt and image are empty, skipping.");
+      return;
+    }
 
-    console.log("Generated requestId:", requestId);
+    console.log("Sending prompt:", prompt);
+    setLoading(true);
+    console.log("context:", context);
+    const requestId = uuidv4(); // Unique identifier for this request
+    const currentPrompt = prompt;
+    const currentImage = base64Image;
     setPrompt("");
     setStreamedResponse("");
 
     try {
-      if (isTools && toolsEnabled) {
-        console.log("Sending prompt to tools API");
-        console.log("tools:", tools);
-        // Send the prompt and message history to the backend API (/api/ollamaChat)
-        /*
+      // Construct the messages array
+      const messages = constructMessages();
+
+      console.log("Constructed messages:", messages);
+
       const response = await fetch("/api/ollamaChat", {
         method: "POST",
         headers: {
@@ -217,129 +205,86 @@ export default function HomePage() {
         body: JSON.stringify({
           model,
           messages,
-          tools,
-          stream: false,
+          stream: true,
         }),
       });
-*/
-      } else {
-        const response = await fetch("/api/ollama", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "request-id": requestId,
-          },
-          body: JSON.stringify({
-            model,
-            prompt: currentPrompt,
-            images: base64Image ? [base64Image] : [],
-            context: currentContext,
-            stream: true,
-          }),
-        });
 
-        // Handle non-streaming response
-        if (
-          !response.body ||
-          !response.headers.get("Content-Type")?.includes("application/json")
-        ) {
-          const responseData = await response.json();
-          if (responseData.error) {
-            throw new Error(responseData.error);
-          }
-          setStreamedResponse(responseData.response);
+      if (!response.ok) {
+        console.log("Response status is not OK:", response.status);
+        const errorData = await response.json();
+        console.error("Error from server:", errorData.error);
+        throw new Error(errorData.error || "Failed to fetch response.");
+      }
+
+      if (!response.body) {
+        console.error("Response body is null. No streaming possible.");
+        throw new Error("No response body for streaming.");
+      }
+
+      console.log("Streaming response started...");
+      let fullResponse = "";
+      setIsStreaming(true);
+
+      const onParse = (parsedData: ChatResponse) => {
+        if (parsedData.message) {
+          fullResponse += parsedData.message.content;
+          setStreamedResponse(fullResponse);
+          scrollToEnd();
+        }
+        if (parsedData.done) {
+          // console.log("Streaming completed. Full response:", fullResponse);
+
           setConversations((prev) => [
             ...prev,
             {
               id: uuidv4(),
-              prompt,
-              response: responseData.response,
-              image: Array.isArray(base64Image)
-                ? base64Image.join(",")
-                : base64Image || null, // Convert array to string or use null
+              prompt: currentPrompt,
+              image: currentImage,
+              response: fullResponse,
               timestamp: Date.now(),
             },
           ]);
-          setLoading(false);
-          setIsStreaming(false);
-          return;
-        }
-
-        // Streaming response
-        let fullResponse = "";
-        setIsStreaming(true);
-
-        const onParse = (parsedData: GenerateResponse) => {
-          if (parsedData.response) {
-            fullResponse += parsedData?.response;
-            setStreamedResponse(fullResponse);
-            scrollToEnd();
-          }
-          if (parsedData?.done) {
-            if (parsedData.context) {
-              setContext(parsedData.context);
-            }
-            setConversations((prev) => [
-              ...prev,
-              {
-                id: uuidv4(),
-                prompt: currentPrompt,
-                response: fullResponse,
-                image: Array.isArray(base64Image)
-                  ? base64Image.join(",")
-                  : base64Image || null,
-                timestamp: Date.now(),
-              },
-            ]);
-            setStreamedResponse("");
-            setLoading(false);
-            setIsStreaming(false);
-            scrollToEnd();
-          }
-        };
-
-        const onFinish = () => {
+          setStreamedResponse("");
           setLoading(false);
           setIsStreaming(false);
           scrollToEnd();
-        };
+        }
+      };
 
-        const onError = (error: unknown) => {
-          console.error("Stream parsing error:", error);
-          setLoading(false);
-          setIsStreaming(false);
-          setStreamedResponse(
-            "An error occurred while generating the response."
-          );
-        };
+      const onFinish = () => {
+        console.log("Streaming finished.");
+        setLoading(false);
+        setIsStreaming(false);
+      };
 
-        const parser = new StreamParser(
-          { format: "ollama" }, // Use 'openai' if interacting with OpenAI API
-          onParse,
-          onFinish,
-          onError
-        );
+      const onError = (error: unknown) => {
+        console.error("Error during streaming:", error);
+        setLoading(false);
+        setIsStreaming(false);
+        setStreamedResponse("Error generating response.");
+      };
 
-        await parser.parse(response.body!);
-      }
+      const parser = new StreamParser(
+        { format: "ollama" },
+        onParse,
+        onFinish,
+        onError
+      );
+      await parser.parse(response.body!);
     } catch (error) {
       console.error("Error in sendPrompt:", error);
+      setStreamedResponse("An error occurred while generating the response.");
       setLoading(false);
       setIsStreaming(false);
-      setStreamedResponse("An error occurred while generating the response.");
     }
   }, [
     prompt,
-    context,
-    getCurrentContext,
-    isTools,
-    toolsEnabled,
-    tools,
     base64Image,
+    context,
+    constructMessages,
     model,
-    setConversations,
     scrollToEnd,
-    setContext,
+    setConversations,
   ]);
 
   // Set the client-side rendering flag and fetch models on component mount
@@ -450,7 +395,7 @@ export default function HomePage() {
         >
           {/* Render each conversation */}
           {conversations.map((conversation, index) => {
-            // console.log("Full response for extraction:", conversation.response);
+            // console.log("Full response for extraction:", conversation);
             const codeSnippets = extractCodeSnippets(conversation.response);
             const pythonSnippets = extractPythonCode(conversation.response);
             // console.log("Python snippets extracted:", pythonSnippets);
@@ -551,60 +496,110 @@ export default function HomePage() {
       )}
 
       {/* Input Area */}
-      <div className="fixed bottom-0 w-full max-w-full border-gray-200 sm:max-w-4xl">
-        <div className="mt-2 flex space-x-2 px-4 py-2">
-          <div className="relative flex grow items-center">
-            <textarea
-              ref={textareaRef}
-              className="grow rounded-md border border-gray-300 p-2 shadow-sm focus:border-blue-300 focus:outline-none focus:ring sm:p-4"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="Type your message..."
-              rows={2}
-            />
+      <div className="fixed bottom-0 w-full border-gray-300 py-3">
+        <div className="mx-auto flex max-w-3xl items-center px-4">
+          {/* Input Container */}
+          <div className="relative flex flex-1 items-center rounded-lg border border-gray-300 bg-gray-50 shadow-sm focus-within:ring focus-within:ring-blue-300">
+            {/* Image Upload */}
             {visionEnabled && (
-              <div className="absolute left-3 top-1/2 mt-4 -translate-y-1/2 cursor-pointer pt-2 text-gray-400">
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="absolute left-0 top-1/2 h-full w-10 -translate-y-1/2 cursor-pointer opacity-0"
-                />
-                {base64Image ? (
-                  <Image
-                    src={`data:image/png;base64,${base64Image}`}
-                    alt="Uploaded"
-                    className="cursor-pointer rounded-full object-cover"
-                    width={30}
-                    height={30}
+              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    title="Upload Image"
+                    className="hidden"
                   />
-                ) : (
-                  <FaUpload
-                    className="cursor-pointer text-gray-500"
-                    size={18}
-                  />
-                )}
+                  <div className="flex items-center justify-center">
+                    {base64Image ? (
+                      <div className="relative">
+                        <Image
+                          src={`data:image/png;base64,${base64Image}`}
+                          alt="Uploaded"
+                          className="cursor-pointer rounded-full object-cover"
+                          title="Upload Image"
+                          width={30}
+                          height={30}
+                        />
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            clearImage();
+                          }}
+                          className="absolute -right-2 -top-2 z-20 flex size-5 items-center justify-center rounded-full text-red-500 shadow-md hover:bg-red-500 hover:text-white"
+                          title="Remove Image"
+                        >
+                          <FaTrashAlt size={12} />
+                        </button>
+                      </div>
+                    ) : (
+                      <FaUpload
+                        size={20}
+                        className="text-gray-500 hover:text-blue-500"
+                        title="Upload Image"
+                      />
+                    )}
+                  </div>
+                </label>
               </div>
             )}
-          </div>
 
-          {/* Send or Stop Button */}
-          {!isStreaming ? (
-            <button
-              className="rounded-lg bg-blue-500 px-3 py-2 font-semibold text-white shadow hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300 sm:px-4"
-              onClick={sendPrompt}
-              disabled={loading || !modelDownloaded}
-            >
-              Send
-            </button>
-          ) : (
-            <button
-              className="rounded-lg bg-red-500 px-3 py-2 font-semibold text-white shadow hover:bg-red-600 focus:outline-none focus:ring focus:ring-red-300 sm:px-4"
-              onClick={stopStream}
-            >
-              Stop
-            </button>
-          )}
+            {/* Textarea */}
+            <textarea
+              ref={textareaRef}
+              className="h-20 w-full resize-none rounded-lg border-none px-14 py-4 text-sm placeholder:text-gray-500 focus:outline-none"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="Type your message here..."
+              rows={1}
+            />
+
+            {/* Send or Stop Button */}
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              {!isStreaming ? (
+                <button
+                  onClick={sendPrompt}
+                  disabled={loading || !modelDownloaded}
+                  className="flex size-8 items-center justify-center rounded-full bg-blue-500 text-white hover:bg-blue-600 focus:outline-none focus:ring focus:ring-blue-300 disabled:cursor-not-allowed disabled:bg-gray-300"
+                  title="Send Message"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-4"
+                  >
+                    <line x1="22" y1="2" x2="11" y2="13"></line>
+                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                  </svg>
+                </button>
+              ) : (
+                <button
+                  onClick={stopStream}
+                  className="flex size-8 items-center justify-center rounded-full bg-red-500 text-white hover:bg-red-600 focus:outline-none focus:ring focus:ring-red-300"
+                  title="Stop Stream"
+                >
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="size-4"
+                  >
+                    <rect x="6" y="6" width="12" height="12" rx="2"></rect>
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

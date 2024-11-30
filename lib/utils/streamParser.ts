@@ -1,11 +1,11 @@
-import { GenerateResponse } from "ollama";
+import { ChatResponse } from "ollama";
 
 export interface StreamParserOptions {
   format: "openai" | "ollama";
   debug?: boolean; // Optional debug flag for logging
 }
 
-export type OnParseCallback = (data: GenerateResponse) => void;
+export type OnParseCallback = (data: ChatResponse) => void;
 export type OnFinishCallback = (finalContent?: string) => void;
 export type OnErrorCallback = (error: unknown) => void;
 
