@@ -36,6 +36,9 @@ export default function HomePage() {
   const [visionEnabled] = useState<boolean>(
     config.globalSettings.visionEnabled
   );
+  const [ipythonEnabled] = useState<boolean>(
+    config.globalSettings.ipythonEnabled
+  );
   const [prompt, setPrompt] = useState("");
   const [base64Image, setBase64Image] = useState<string | null>();
   // Temporary state for the current streaming response
@@ -157,7 +160,12 @@ export default function HomePage() {
   const clearImage = () => setBase64Image(null);
 
   const constructMessages = useCallback(() => {
+    const systemMessage = ipythonEnabled
+      ? { role: "system", content: "Environment: ipython" }
+      : null;
+
     return [
+      ...(systemMessage ? [systemMessage] : []),
       ...conversations.map((conv) => ({
         role: "user",
         content: conv.prompt,
@@ -172,7 +180,7 @@ export default function HomePage() {
         ...(base64Image && { images: [base64Image] }),
       },
     ];
-  }, [conversations, prompt, base64Image]);
+  }, [ipythonEnabled, conversations, prompt, base64Image]);
 
   // Function to send the user's prompt to the API
   const sendPrompt = useCallback(async () => {

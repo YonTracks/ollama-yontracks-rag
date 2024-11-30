@@ -235,6 +235,23 @@ export default function SettingsMenu({
                     }
                   />
                 </label>
+                <label className="mt-4 flex items-center text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={configData.globalSettings.ipythonEnabled}
+                    onChange={(e) =>
+                      setConfigData({
+                        ...configData,
+                        globalSettings: {
+                          ...configData.globalSettings,
+                          ipythonEnabled: e.target.checked,
+                        },
+                      })
+                    }
+                    className="mr-2"
+                  />
+                  Enable IPython
+                </label>
                 <button
                   className="mt-4 rounded-md bg-blue-500 px-3 py-2 font-semibold text-white hover:bg-blue-600 focus:outline-none"
                   onClick={handleSettingsUpdate}
@@ -272,15 +289,11 @@ export default function SettingsMenu({
                     <div key={index} className="mb-4 flex items-center">
                       <input
                         type="checkbox"
-                        checked={selectedTools.includes(tool.functionName)}
-                        onChange={() =>
-                          handleToolCheckboxChange(tool.functionName)
-                        }
+                        checked={selectedTools.includes(tool.function)}
+                        onChange={() => handleToolCheckboxChange(tool.function)}
                         className="mr-2 "
                       />
-                      <label className="text-gray-700">
-                        {tool.functionName}
-                      </label>
+                      <label className="text-gray-700">{tool.function}</label>
                     </div>
                   ))
                 ) : (
