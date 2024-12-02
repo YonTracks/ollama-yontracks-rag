@@ -3,8 +3,8 @@
 "use client";
 
 import Image from "next/image";
-import { ChatResponse } from "ollama";
-import {
+import { ChatResponse, Message, Tool } from "ollama";
+import React, {
   useState,
   useEffect,
   useRef,
@@ -21,6 +21,8 @@ import PromptList from "@/components/PromptList";
 import RunCodeComponent from "@/components/RunCodeComponent";
 import SettingsMenu from "@/components/SettingsMenu";
 import useIndexedDB from "@/hooks/useIndexedDB";
+import { tools } from "@/lib/tools/toolsJson";
+import { executeTool } from "@/lib/utils/executeTool";
 import { extractCodeSnippets } from "@/lib/utils/extractCodeSnippets";
 import { extractPythonCode } from "@/lib/utils/extractPythonCode";
 import { StreamParser } from "@/lib/utils/streamParser";
@@ -29,38 +31,64 @@ import { Conversation } from "@/types/conversations";
 
 type Position = { x: number; y: number };
 
+interface Model {
+  name: string;
+}
+
+interface SettingsResponse {
+  globalSettings: {
+    defaultModel: string;
+    visionEnabled: boolean;
+    ipythonEnabled: boolean;
+    toolsEnabled: boolean;
+  };
+}
+
+interface ModelsResponse {
+  models: Model[];
+}
+
+interface Payload {
+  model: string;
+  messages: Message[];
+  stream: boolean;
+  tools?: Tool[];
+}
 export default function HomePage() {
   const [isClient, setIsClient] = useState<boolean>(false);
-  const [, setConfigData] = useState(config);
-  const [model, setModel] = useState(config.globalSettings.defaultModel);
+  const [, setConfigData] = useState<SettingsResponse>(config);
+  const [model, setModel] = useState<string>(
+    config.globalSettings.defaultModel
+  );
   const [visionEnabled] = useState<boolean>(
     config.globalSettings.visionEnabled
   );
   const [ipythonEnabled] = useState<boolean>(
     config.globalSettings.ipythonEnabled
   );
-  const [prompt, setPrompt] = useState("");
-  const [base64Image, setBase64Image] = useState<string | null>();
-  // Temporary state for the current streaming response
+  const [toolsEnabled] = useState<boolean>(config.globalSettings.toolsEnabled);
+  const [prompt, setPrompt] = useState<string>("");
+  const [base64Image, setBase64Image] = useState<string | null>(null);
   const [streamedResponse, setStreamedResponse] = useState<string>("");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
   const [context, setContext] = useIndexedDB<number[]>("home-rag-context", []);
   const [conversations, setConversations] = useIndexedDB<Conversation[]>(
     "home-rag-conversations",
     []
   );
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [modelDownloaded, setModelDownloaded] = useState(false);
-  const [, setDropdownOpen] = useState(false);
+  const [isStreaming, setIsStreaming] = useState<boolean>(false);
+  const [, setCurrentTool] = useState<string | null>(null);
+  const [, setToolProgress] = useState<string | null>(null);
+  const [isToolExecuting, setIsToolExecuting] = useState<boolean>(false);
+  const [modelDownloaded, setModelDownloaded] = useState<boolean>(false);
+  const [, setDropdownOpen] = useState<boolean>(false);
   const [, setPosition] = useState<Position>({ x: -220, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
+  const [isDragging, setIsDragging] = useState<boolean>(false);
   const dragStartPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Refs for DOM elements
   const responseContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Function to scroll to the end of the conversation
   const scrollToEnd = useCallback(() => {
     if (responseContainerRef.current) {
       responseContainerRef.current.scrollTop =
@@ -68,12 +96,11 @@ export default function HomePage() {
     }
   }, []);
 
-  // Fetch the configuration data from the API
   useEffect(() => {
     const fetchConfig = async () => {
       try {
         const response = await fetch("/api/settings");
-        const data = await response.json();
+        const data: SettingsResponse = await response.json();
         setConfigData(data);
       } catch (error) {
         console.error("Error fetching config:", error);
@@ -82,7 +109,6 @@ export default function HomePage() {
     fetchConfig();
   }, []);
 
-  // Fetch available models and check if the default model is downloaded
   const fetchModels = useCallback(async () => {
     try {
       const response = await fetch("/api/models");
@@ -91,9 +117,9 @@ export default function HomePage() {
         throw new Error("Failed to fetch models");
       }
 
-      const data = await response.json();
+      const data: ModelsResponse = await response.json();
       const availableModels = data.models;
-      const defaultModelExists = availableModels.some((m: { name: string }) =>
+      const defaultModelExists = availableModels.some((m) =>
         m.name.startsWith(model)
       );
 
@@ -191,18 +217,32 @@ export default function HomePage() {
 
     console.log("Sending prompt:", prompt);
     setLoading(true);
-    console.log("context:", context);
     const requestId = uuidv4(); // Unique identifier for this request
     const currentPrompt = prompt;
     const currentImage = base64Image;
     setPrompt("");
     setStreamedResponse("");
+    setCurrentTool(null);
+    setToolProgress(null);
 
     try {
-      // Construct the messages array
-      const messages = constructMessages();
+      setIsStreaming(true);
+      setCurrentTool("Ollama Chat");
+      setToolProgress("Sending prompt to OllamaChat...");
 
+      const messages = constructMessages();
       console.log("Constructed messages:", messages);
+
+      const payload: Payload = {
+        model,
+        messages,
+        stream: true,
+      };
+
+      // Conditionally add tools if enabled and not executing
+      if (toolsEnabled && !isToolExecuting) {
+        payload.tools = tools;
+      }
 
       const response = await fetch("/api/ollamaChat", {
         method: "POST",
@@ -210,22 +250,16 @@ export default function HomePage() {
           "Content-Type": "application/json",
           "request-id": requestId,
         },
-        body: JSON.stringify({
-          model,
-          messages,
-          stream: true,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
-        console.log("Response status is not OK:", response.status);
+        console.error("Response status is not OK:", response.status);
         const errorData = await response.json();
-        console.error("Error from server:", errorData.error);
         throw new Error(errorData.error || "Failed to fetch response.");
       }
 
       if (!response.body) {
-        console.error("Response body is null. No streaming possible.");
         throw new Error("No response body for streaming.");
       }
 
@@ -233,14 +267,81 @@ export default function HomePage() {
       let fullResponse = "";
       setIsStreaming(true);
 
-      const onParse = (parsedData: ChatResponse) => {
+      const onParse = async (parsedData: ChatResponse) => {
+        // Handle tool calls
+        if (parsedData.message?.tool_calls?.length) {
+          console.log("Tool calls detected:", parsedData.message.tool_calls);
+
+          for (const toolCall of parsedData.message.tool_calls) {
+            const toolName = toolCall.function.name;
+            const toolArgs = toolCall.function.arguments;
+
+            try {
+              // console.log(`Tool Call: ${toolName} with args:`, toolArgs);
+              const toolResponse = await executeTool(toolName, toolArgs);
+              setIsToolExecuting(true);
+
+              // Prepare tool response message
+              const toolResponseMessage = {
+                role: "tool",
+                content: JSON.stringify(toolResponse, null, 2),
+              };
+              messages.push(toolResponseMessage);
+              console.log("Updated messages with tool response:", messages);
+
+              // Send tool response back to the API
+              const toolPayload = {
+                model,
+                messages,
+                stream: true,
+              };
+
+              // Continue streaming the response with the updated messages
+              const toolResponseFetch = await fetch("/api/ollamaChat", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "request-id": uuidv4(),
+                },
+                body: JSON.stringify(toolPayload),
+              });
+
+              if (!toolResponseFetch.ok) {
+                throw new Error(
+                  "Failed to continue streaming after tool response."
+                );
+              }
+
+              const parser = new StreamParser(
+                { format: "ollama" },
+                onParse,
+                onFinish,
+                onError
+              );
+              await parser.parse(toolResponseFetch.body!);
+              setIsToolExecuting(false);
+              return;
+            } catch (error) {
+              console.error(`Error executing tool ${toolName}:`, error);
+              setStreamedResponse(
+                (prev) =>
+                  prev + `\n\nError executing tool ${toolName}:\n${error}`
+              );
+            } finally {
+              setIsToolExecuting(false);
+            }
+          }
+        }
+
+        // Normal response handling
         if (parsedData.message) {
           fullResponse += parsedData.message.content;
           setStreamedResponse(fullResponse);
           scrollToEnd();
         }
+
         if (parsedData.done) {
-          // console.log("Streaming completed. Full response:", fullResponse);
+          console.log("parsed data done: ", parsedData);
 
           setConversations((prev) => [
             ...prev,
@@ -260,16 +361,17 @@ export default function HomePage() {
       };
 
       const onFinish = () => {
-        console.log("Streaming finished.");
         setLoading(false);
         setIsStreaming(false);
+        console.log("Streaming finished.");
+        scrollToEnd();
       };
 
       const onError = (error: unknown) => {
         console.error("Error during streaming:", error);
+        setStreamedResponse("Error generating response.");
         setLoading(false);
         setIsStreaming(false);
-        setStreamedResponse("Error generating response.");
       };
 
       const parser = new StreamParser(
@@ -288,9 +390,10 @@ export default function HomePage() {
   }, [
     prompt,
     base64Image,
-    context,
     constructMessages,
     model,
+    toolsEnabled,
+    isToolExecuting,
     scrollToEnd,
     setConversations,
   ]);

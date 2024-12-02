@@ -252,6 +252,23 @@ export default function SettingsMenu({
                   />
                   Enable IPython
                 </label>
+                {/* <label className="mt-4 flex items-center text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={configData.globalSettings.toolsEnabled}
+                    onChange={(e) =>
+                      setConfigData({
+                        ...configData,
+                        globalSettings: {
+                          ...configData.globalSettings,
+                          toolsEnabled: e.target.checked,
+                        },
+                      })
+                    }
+                    className="mr-2"
+                  />
+                  Enable tools
+                </label> */}
                 <button
                   className="mt-4 rounded-md bg-blue-500 px-3 py-2 font-semibold text-white hover:bg-blue-600 focus:outline-none"
                   onClick={handleSettingsUpdate}
@@ -284,16 +301,20 @@ export default function SettingsMenu({
 
             {activeTab === "tools" && (
               <div>
-                {configData.defaultTools.length > 0 ? (
+                {configData.defaultTools.length ? (
                   configData.defaultTools.map((tool, index) => (
                     <div key={index} className="mb-4 flex items-center">
                       <input
                         type="checkbox"
-                        checked={selectedTools.includes(tool.function)}
-                        onChange={() => handleToolCheckboxChange(tool.function)}
+                        checked={selectedTools.includes(tool.function.name)}
+                        onChange={() =>
+                          handleToolCheckboxChange(tool.function.name)
+                        }
                         className="mr-2 "
                       />
-                      <label className="text-gray-700">{tool.function}</label>
+                      <label className="text-gray-700">
+                        {tool.function.name}
+                      </label>
                     </div>
                   ))
                 ) : (

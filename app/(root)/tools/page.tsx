@@ -1,15 +1,10 @@
 "use client";
 
 import { Tool } from "ollama";
-import React, { useEffect, useState, useCallback } from "react";
-import {
-  FaChevronDown,
-  FaChevronUp,
-  FaEdit,
-  FaTrashAlt,
-  FaPlus,
-} from "react-icons/fa";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
+import { FaChevronDown, FaChevronUp, FaEdit } from "react-icons/fa";
 
+import { tools } from "@/lib/tools/toolsJson";
 import config from "@/ollama.config.json";
 
 function ToolsPage() {
@@ -38,6 +33,41 @@ function ToolsPage() {
     fetchConfig();
   }, [fetchConfig]);
   console.log(configData);
+
+  const addTool = async (tool: Tool) => {
+    const updatedConfigData = {
+      ...configData,
+      defaultTools: [...configData.defaultTools, tool],
+    };
+
+    try {
+      const response = await fetch("/api/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedConfigData),
+      });
+      if (!response.ok) throw new Error("Failed to update settings");
+
+      setConfigData(updatedConfigData);
+      alert(`${tool.function.name} added successfully!`);
+    } catch (error) {
+      console.error("Error updating settings:", error);
+    }
+  };
+
+  const filteredTools = useMemo(() => {
+    return tools.filter((tool) =>
+      tool.function.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [searchQuery]);
+
+  const isToolInConfig = (toolName: string) => {
+    return configData.defaultTools.some(
+      (tool) => tool.function.name === toolName
+    );
+  };
 
   return (
     <div className="mx-auto flex max-w-screen-xl flex-col items-center p-4">
@@ -129,7 +159,52 @@ function ToolsPage() {
               title="Search tools by name or description"
             />
           </div>
-          <ul className="mt-6 grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"></ul>
+          <ul className="mt-6 grid w-full max-w-3xl grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {filteredTools.map((tool) => (
+              <li
+                key={tool.function.name}
+                className="rounded-lg bg-gray-100 p-4 shadow-md transition hover:bg-gray-200"
+                title={`Manage options for the model: ${tool.function.name}`}
+              >
+                <div className="flex h-full flex-col justify-between">
+                  <span className="mb-4 text-lg font-semibold text-gray-800">
+                    {tool.function.name}
+                  </span>
+                  <div className="mt-auto flex justify-between">
+                    {isToolInConfig(tool.function.name) ? (
+                      <span
+                        className="font-semibold text-green-500"
+                        title="This model is already added"
+                      >
+                        Added
+                      </span>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          addTool(tool);
+                        }}
+                        className="rounded bg-green-500 px-3 py-1 text-white hover:bg-green-600"
+                        title="Add downloaded model"
+                      >
+                        Add
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        // Implement edit functionality if needed
+                      }}
+                      className="rounded bg-blue-500 px-3 py-1 text-white hover:bg-blue-600"
+                      title="Edit this model's details"
+                    >
+                      <FaEdit size={18} />
+                    </button>
+                  </div>
+                </div>
+              </li>
+            ))}
+          </ul>
         </>
       )}
     </div>
