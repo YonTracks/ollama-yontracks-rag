@@ -3,8 +3,10 @@
 import axios from "axios";
 import { DateTime } from "luxon";
 
+import { GeocodingResult, WeatherApiResponse } from "@/types/weather";
+
 // Mapping for WMO (World Meteorological Organization) weather codes
-const wmoWeatherCodes: { [key: string]: string } = {
+const wmoWeatherCodes: Record<string, string> = {
   // Weather codes with corresponding descriptions
   "0": "Clear sky",
   "1": "Mainly clear, partly cloudy, and overcast",
@@ -41,7 +43,9 @@ const wmoWeatherCodes: { [key: string]: string } = {
  * @param city - The name of the city.
  * @returns A promise resolving to the city's geographical info or null if the API request fails.
  */
-export async function getCityInfo(city: string): Promise<CityInfo | null> {
+export const getCityInfo = async (
+  city: string
+): Promise<GeocodingResult | null> => {
   const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(
     city
   )}&count=1&language=en&format=json`;
@@ -57,7 +61,7 @@ export async function getCityInfo(city: string): Promise<CityInfo | null> {
     console.error(`Error fetching city info for ${city}:`, error);
     return null;
   }
-}
+};
 
 /**
  * Fetches weather data from the Open Meteo API based on the given URL and parameters.
@@ -65,20 +69,17 @@ export async function getCityInfo(city: string): Promise<CityInfo | null> {
  * @param params - Query parameters for the API request.
  * @returns A promise resolving to the weather data or an error message string if the request fails.
  */
-export async function fetchWeatherData(
+export const fetchWeatherData = async <T>(
   baseUrl: string,
-  params: any
-): Promise<WeatherData | string> {
+  params: Record<string, unknown>
+): Promise<T | string> => {
   try {
-    const response = await axios.get(baseUrl, { params });
-    if (response.data.error) {
-      return `Error fetching weather data: ${response.data.message}`;
-    }
+    const response = await axios.get<T>(baseUrl, { params });
     return response.data;
-  } catch (error: any) {
-    return `Error fetching weather data: ${error.message}`;
+  } catch (error) {
+    return `Error fetching weather data: ${error}`;
   }
-}
+};
 
 /**
  * Formats a given ISO date string into a more human-readable format based on the provided timezone.
@@ -86,16 +87,16 @@ export async function fetchWeatherData(
  * @param timeZone - The timezone in which to format the date.
  * @returns A formatted string representing the time.
  */
-function formatDate(dateStr: string, timeZone: string): string {
+const formatDate = (dateStr: string, timeZone: string): string => {
   return DateTime.fromISO(dateStr, { zone: timeZone }).toFormat("h:mm a");
-}
+};
 
 /**
  * Fetches and returns a formatted weather forecast for the next week for a given city.
  * @param city - The name of the city to get the weather forecast for.
  * @returns A promise resolving to a string with the formatted weather forecast or an error message if the operation fails.
  */
-export async function getFutureWeatherWeek(city: string): Promise<string> {
+export const getFutureWeatherWeek = async (city: string): Promise<string> => {
   if (!city) {
     return "The location has not been defined by the user, so weather cannot be determined.";
   }
@@ -126,9 +127,10 @@ export async function getFutureWeatherWeek(city: string): Promise<string> {
     forecast_days: 7,
   };
 
-  const data = await fetchWeatherData(baseUrl, params);
+  const data = await fetchWeatherData<WeatherApiResponse>(baseUrl, params);
+
   if (typeof data === "string") {
-    return data;
+    return data; // Handle the error case
   }
 
   const formattedTimestamp = formatDate(data.timezone_abbreviation, timezone);
@@ -142,7 +144,6 @@ export async function getFutureWeatherWeek(city: string): Promise<string> {
     precipitation_probability_max: `${data.precipitation_probability_max[i]} ${data.daily_units.precipitation_probability_max}`,
     max_wind_speed: `${data.wind_speed_10m_max[i]} ${data.daily_units.wind_speed_10m_max}`,
   }));
-
   return `
 Give a weather description for the next week, include the time of the data (${formattedTimestamp} in ${city}):
 Show a standard table layout of each of these days: ${JSON.stringify(
@@ -150,18 +151,18 @@ Show a standard table layout of each of these days: ${JSON.stringify(
   )}
 Include a one-sentence summary of the week at the end.
   `;
-}
+};
 
 /**
  * Fetches and returns the current weather for a given city in a brief, formatted string.
  * @param city - The name of the city to get the current weather for.
  * @returns A promise resolving to a string with the formatted current weather data or an error message if the operation fails.
  */
-export async function getCurrentWeather({
+export const getCurrentWeather = async ({
   city,
 }: {
   city: string;
-}): Promise<string> {
+}): Promise<string> => {
   if (!city) {
     return "The location has not been defined by the user, so weather cannot be determined.";
   }
@@ -187,7 +188,7 @@ export async function getCurrentWeather({
     timezone,
   };
 
-  const data = await fetchWeatherData(baseUrl, params);
+  const data = await fetchWeatherData<WeatherApiResponse>(baseUrl, params);
   if (typeof data === "string") {
     return data;
   }
@@ -206,4 +207,4 @@ Include this data: [${formattedData}]
 Ensure you mention the real temperature and the "feels like" (apparent_temperature) temperature.
 Keep response as brief as possible.
   `;
-}
+};

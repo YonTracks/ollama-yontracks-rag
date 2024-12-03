@@ -8,13 +8,13 @@
  */
 export const getFlightTimes = async (
   args: { departure: string; arrival: string } | string
-) => {
+): Promise<string> => {
   let parsedArgs: { departure: string; arrival: string };
 
-  // Check if args is a string and parse it into an object
+  // Parse arguments if they are provided as a string
   if (typeof args === "string") {
     try {
-      parsedArgs = JSON.parse(args);
+      parsedArgs = JSON.parse(args) as { departure: string; arrival: string };
     } catch (error) {
       console.error("Error parsing arguments:", error);
       return JSON.stringify({ error: "Invalid arguments format" });
@@ -24,6 +24,7 @@ export const getFlightTimes = async (
   }
 
   const { departure, arrival } = parsedArgs;
+
   console.log("Getting flight times for:", departure, "to", arrival);
 
   // Validate if departure or arrival city codes are missing
@@ -31,18 +32,11 @@ export const getFlightTimes = async (
     return JSON.stringify({ error: "Departure or arrival city is missing" });
   }
 
-  /**
-   * A mock database of flight times between different city pairs.
-   * The keys are in the format 'DEPARTURE-ARRIVAL'.
-   *
-   * For each entry:
-   * - `departure`: The departure time of the flight.
-   * - `arrival`: The arrival time of the flight.
-   * - `duration`: The total flight duration.
-   */
-  const flights: {
-    [key: string]: { departure: string; arrival: string; duration: string };
-  } = {
+  // Mock database of flight times
+  const flights: Record<
+    string,
+    { departure: string; arrival: string; duration: string }
+  > = {
     "NYC-LAX": {
       departure: "08:00 AM",
       arrival: "11:30 AM",
@@ -75,11 +69,14 @@ export const getFlightTimes = async (
     },
   };
 
-  // Generate the key to lookup in the flights database
+  // Generate the key for lookup
   const key = `${departure}-${arrival}`.toUpperCase();
-  // Retrieve the flight details or return an error if not found
+
+  // Retrieve flight details or return an error if not found
   const result = flights[key] || { error: "Flight not found" };
 
   console.log("Flight time result:", result);
+
+  // Return the result as a JSON string
   return JSON.stringify(result);
 };

@@ -27,7 +27,8 @@ export default function SettingsMenu({
   const dragStartPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const [configData, setConfigData] = useState(config);
 
-  // Track selected tools
+  // Track all tools and selected tools
+  const [allTools, setAllTools] = useState<Tool[]>([]);
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
 
   // Fetch the configuration data from the API
@@ -38,7 +39,10 @@ export default function SettingsMenu({
         if (!response.ok) throw new Error(`Error: ${response.status}`);
         const data = await response.json();
         setConfigData(data);
-        setSelectedTools(data.defaultTools.map((tool: Tool) => tool.function));
+        setAllTools(data.defaultTools);
+        setSelectedTools(
+          data.defaultTools.map((tool: Tool) => tool.function.name)
+        );
       } catch (error) {
         console.error("Error fetching config:", error);
         alert("Failed to fetch configuration.");
@@ -47,33 +51,35 @@ export default function SettingsMenu({
     fetchConfig();
   }, []);
 
-  useEffect(() => {
-    const toolsEnabled = selectedTools.length > 0;
-    setConfigData((prev) => ({
-      ...prev,
-      globalSettings: {
-        ...prev.globalSettings,
-        toolsEnabled,
-      },
-    }));
-  }, [selectedTools]);
-
   const handleToolCheckboxChange = (toolName: string) => {
-    setSelectedTools((prev) =>
-      prev.includes(toolName)
-        ? prev.filter((name) => name !== toolName)
-        : [...prev, toolName]
-    );
+    setSelectedTools((prevSelectedTools) => {
+      let newSelectedTools;
+      if (prevSelectedTools.includes(toolName)) {
+        newSelectedTools = prevSelectedTools.filter(
+          (name) => name !== toolName
+        );
+      } else {
+        newSelectedTools = [...prevSelectedTools, toolName];
+      }
+      return newSelectedTools;
+    });
   };
 
   const handleSettingsUpdate = async () => {
+    const updatedConfigData = {
+      ...configData,
+      defaultTools: allTools.filter((tool) =>
+        selectedTools.includes(tool.function.name)
+      ),
+    };
+
     try {
       const response = await fetch("/api/settings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(configData),
+        body: JSON.stringify(updatedConfigData),
       });
       if (!response.ok) throw new Error("Failed to update settings");
       alert("Settings updated successfully!");
@@ -87,8 +93,8 @@ export default function SettingsMenu({
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
       if (isDragging) {
-        const newX = Math.max(0, e.clientX - dragStartPosition.current.x);
-        const newY = Math.max(0, e.clientY - dragStartPosition.current.y);
+        const newX = Number(e.clientX - dragStartPosition.current.x);
+        const newY = Number(e.clientY - dragStartPosition.current.y);
         setPosition({ x: newX, y: newY });
       }
     },
@@ -252,7 +258,7 @@ export default function SettingsMenu({
                   />
                   Enable IPython
                 </label>
-                {/* <label className="mt-4 flex items-center text-gray-700">
+                <label className="mt-4 flex items-center text-gray-700">
                   <input
                     type="checkbox"
                     checked={configData.globalSettings.toolsEnabled}
@@ -268,7 +274,7 @@ export default function SettingsMenu({
                     className="mr-2"
                   />
                   Enable tools
-                </label> */}
+                </label>
                 <button
                   className="mt-4 rounded-md bg-blue-500 px-3 py-2 font-semibold text-white hover:bg-blue-600 focus:outline-none"
                   onClick={handleSettingsUpdate}
@@ -301,8 +307,8 @@ export default function SettingsMenu({
 
             {activeTab === "tools" && (
               <div>
-                {configData.defaultTools.length ? (
-                  configData.defaultTools.map((tool, index) => (
+                {allTools.length ? (
+                  allTools.map((tool, index) => (
                     <div key={index} className="mb-4 flex items-center">
                       <input
                         type="checkbox"

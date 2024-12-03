@@ -3,7 +3,7 @@
 "use client";
 
 import Image from "next/image";
-import { ChatResponse, Message, Tool } from "ollama";
+import { ChatResponse } from "ollama";
 import React, {
   useState,
   useEffect,
@@ -28,32 +28,8 @@ import { extractPythonCode } from "@/lib/utils/extractPythonCode";
 import { StreamParser } from "@/lib/utils/streamParser";
 import config from "@/ollama.config.json";
 import { Conversation } from "@/types/conversations";
+import { SettingsResponse, ModelsResponse, Payload } from "@/types/interfaces";
 
-type Position = { x: number; y: number };
-
-interface Model {
-  name: string;
-}
-
-interface SettingsResponse {
-  globalSettings: {
-    defaultModel: string;
-    visionEnabled: boolean;
-    ipythonEnabled: boolean;
-    toolsEnabled: boolean;
-  };
-}
-
-interface ModelsResponse {
-  models: Model[];
-}
-
-interface Payload {
-  model: string;
-  messages: Message[];
-  stream: boolean;
-  tools?: Tool[];
-}
 export default function HomePage() {
   const [isClient, setIsClient] = useState<boolean>(false);
   const [, setConfigData] = useState<SettingsResponse>(config);
@@ -82,12 +58,9 @@ export default function HomePage() {
   const [isToolExecuting, setIsToolExecuting] = useState<boolean>(false);
   const [modelDownloaded, setModelDownloaded] = useState<boolean>(false);
   const [, setDropdownOpen] = useState<boolean>(false);
-  const [, setPosition] = useState<Position>({ x: -220, y: 0 });
-  const [isDragging, setIsDragging] = useState<boolean>(false);
-  const dragStartPosition = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  const responseContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const responseContainerRef = useRef<HTMLDivElement>(null);
 
   const scrollToEnd = useCallback(() => {
     if (responseContainerRef.current) {
@@ -364,7 +337,6 @@ export default function HomePage() {
         setLoading(false);
         setIsStreaming(false);
         console.log("Streaming finished.");
-        scrollToEnd();
       };
 
       const onError = (error: unknown) => {
@@ -424,34 +396,25 @@ export default function HomePage() {
     return () => textarea?.removeEventListener("keydown", handleKeyDown);
   }, [sendPrompt]);
 
-  const handleMouseMove = useCallback(
-    (e: MouseEvent) => {
-      if (isDragging) {
-        const newX = e.clientX - dragStartPosition.current.x;
-        const newY = e.clientY - dragStartPosition.current.y;
-        setPosition({ x: newX, y: newY });
-      }
-    },
-    [isDragging]
-  );
+  const handleResize = (e: React.MouseEvent<HTMLDivElement, MouseEvent>) => {
+    if (!textareaRef.current) return;
+    const startY = e.clientY;
+    const startHeight = textareaRef.current.offsetHeight;
 
-  const handleMouseUp = () => setIsDragging(false);
-
-  // Attach and remove event listeners for dragging
-  useEffect(() => {
-    if (isDragging) {
-      window.addEventListener("mousemove", handleMouseMove);
-      window.addEventListener("mouseup", handleMouseUp);
-    } else {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
-    }
-
-    return () => {
-      window.removeEventListener("mousemove", handleMouseMove);
-      window.removeEventListener("mouseup", handleMouseUp);
+    const onMouseMove = (event: MouseEvent) => {
+      if (!textareaRef.current) return;
+      const newHeight = Math.max(startHeight - (event.clientY - startY), 20);
+      textareaRef.current.style.height = `${newHeight}px`;
     };
-  }, [handleMouseMove, isDragging]);
+
+    const onMouseUp = () => {
+      window.removeEventListener("mousemove", onMouseMove);
+      window.removeEventListener("mouseup", onMouseUp);
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+    window.addEventListener("mouseup", onMouseUp);
+  };
 
   // Function to select model
   const handleModelSelect = (selectedModel: string) => {
@@ -482,8 +445,6 @@ export default function HomePage() {
           <button
             className="rounded-full bg-green-500 px-3 py-2 font-semibold text-white hover:bg-green-600 focus:outline-none focus:ring focus:ring-green-300 sm:px-4"
             onClick={() => {
-              // Reset position on New Chat
-              setPosition({ x: -220, y: 0 });
               handleNewChat();
             }}
           >
@@ -607,10 +568,10 @@ export default function HomePage() {
       )}
 
       {/* Input Area */}
-      <div className="fixed bottom-0 w-full border-gray-300 py-3">
+      <div className="fixed bottom-0 w-full resize border-gray-300 py-3">
         <div className="mx-auto flex max-w-3xl items-center px-4">
           {/* Input Container */}
-          <div className="relative flex flex-1 items-center rounded-lg border border-gray-300 bg-gray-50 shadow-sm focus-within:ring focus-within:ring-blue-300">
+          <div className="relative flex flex-1 resize items-center rounded-lg border border-gray-300 bg-gray-50 shadow-sm focus-within:ring focus-within:ring-blue-300">
             {/* Image Upload */}
             {visionEnabled && (
               <div className="absolute left-3 top-1/2 -translate-y-1/2">
@@ -659,15 +620,20 @@ export default function HomePage() {
             {/* Textarea */}
             <textarea
               ref={textareaRef}
-              className="h-20 w-full resize-none rounded-lg border-none px-14 py-4 text-sm placeholder:text-gray-500 focus:outline-none"
+              className="h-20 w-full resize-none scroll-py-6 rounded-lg border-none px-14 py-4 text-sm placeholder:text-gray-500 focus:outline-none"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Type your message here..."
               rows={1}
             />
-
+            <div
+              className="absolute right-0 top-0 cursor-ns-resize"
+              onMouseDown={(e) => handleResize(e)}
+            >
+              <div className="size-4"></div>
+            </div>
             {/* Send or Stop Button */}
-            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            <div className="absolute right-6 top-1/2 -translate-y-1/2">
               {!isStreaming ? (
                 <button
                   onClick={sendPrompt}

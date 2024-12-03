@@ -17,7 +17,7 @@ import { performReasoning } from "@/lib/tools/performReasoning";
 
 export const executeTool = async (
   toolName: string,
-  args: string | object
+  args: string | unknown
 ): Promise<string> => {
   console.log(`Executing tool: ${toolName} with arguments:`, args);
   const availableFunctions: {

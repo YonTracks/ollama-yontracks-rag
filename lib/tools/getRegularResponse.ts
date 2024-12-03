@@ -58,7 +58,7 @@ export const getRegularResponse = async (content: string): Promise<string> => {
     }
 
     // Return a regular response if no specific patterns are processed
-    return `Reply based on the following prompt: ${contentString}`;
+    return `Reply based on the following prompt: ${contentString}. If code is needed to answer the question, then write the code and use it accordingly.`;
   } catch (error) {
     // Catch and log any errors encountered during processing
     console.error("Error in getRegularResponse:", error);
