@@ -55,7 +55,6 @@ export default function HomePage() {
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   const [, setCurrentTool] = useState<string | null>(null);
   const [, setToolProgress] = useState<string | null>(null);
-  const [isToolExecuting, setIsToolExecuting] = useState<boolean>(false);
   const [modelDownloaded, setModelDownloaded] = useState<boolean>(false);
   const [, setDropdownOpen] = useState<boolean>(false);
 
@@ -187,6 +186,7 @@ export default function HomePage() {
       console.log("Prompt and image are empty, skipping.");
       return;
     }
+    let isToolStreaming = true;
 
     console.log("Sending prompt:", prompt);
     setLoading(true);
@@ -213,7 +213,7 @@ export default function HomePage() {
       };
 
       // Conditionally add tools if enabled and not executing
-      if (toolsEnabled && !isToolExecuting) {
+      if (toolsEnabled) {
         payload.tools = tools;
       }
 
@@ -244,6 +244,9 @@ export default function HomePage() {
         // Handle tool calls
         if (parsedData.message?.tool_calls?.length) {
           console.log("Tool calls detected:", parsedData.message.tool_calls);
+          isToolStreaming = true;
+
+          console.log("tool running:", isToolStreaming);
 
           for (const toolCall of parsedData.message.tool_calls) {
             const toolName = toolCall.function.name;
@@ -252,8 +255,6 @@ export default function HomePage() {
             try {
               // console.log(`Tool Call: ${toolName} with args:`, toolArgs);
               const toolResponse = await executeTool(toolName, toolArgs);
-              setIsToolExecuting(true);
-
               // Prepare tool response message
               const toolResponseMessage = {
                 role: "tool",
@@ -292,7 +293,7 @@ export default function HomePage() {
                 onError
               );
               await parser.parse(toolResponseFetch.body!);
-              setIsToolExecuting(false);
+
               return;
             } catch (error) {
               console.error(`Error executing tool ${toolName}:`, error);
@@ -301,7 +302,13 @@ export default function HomePage() {
                   prev + `\n\nError executing tool ${toolName}:\n${error}`
               );
             } finally {
-              setIsToolExecuting(false);
+              setIsStreaming(false);
+              isToolStreaming = false;
+              console.log(
+                "Finally: end of try catch",
+                "tool running:",
+                isToolStreaming
+              );
             }
           }
         }
@@ -328,15 +335,17 @@ export default function HomePage() {
           ]);
           setStreamedResponse("");
           setLoading(false);
-          setIsStreaming(false);
-          scrollToEnd();
         }
       };
 
       const onFinish = () => {
+        if (toolsEnabled && isToolStreaming) {
+          isToolStreaming = false;
+          return;
+        }
         setLoading(false);
         setIsStreaming(false);
-        console.log("Streaming finished.");
+        console.log("Parse finished.", "tool running:", isToolStreaming);
       };
 
       const onError = (error: unknown) => {
@@ -365,7 +374,6 @@ export default function HomePage() {
     constructMessages,
     model,
     toolsEnabled,
-    isToolExecuting,
     scrollToEnd,
     setConversations,
   ]);
