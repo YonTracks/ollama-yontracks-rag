@@ -293,8 +293,6 @@ export default function HomePage() {
                 onError
               );
               await parser.parse(toolResponseFetch.body!);
-
-              return;
             } catch (error) {
               console.error(`Error executing tool ${toolName}:`, error);
               setStreamedResponse(
@@ -311,6 +309,7 @@ export default function HomePage() {
               );
             }
           }
+          return;
         }
 
         // Normal response handling

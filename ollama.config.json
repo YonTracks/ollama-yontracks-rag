@@ -5,7 +5,7 @@
     "defaultModel": "llama3.1",
     "defaultVision": "llava-llama3",
     "defaultEmbed": "nomic-embed-text",
-    "toolsEnabled": true,
+    "toolsEnabled": false,
     "visionEnabled": true,
     "ipythonEnabled": true,
     "timeout": 30000,
