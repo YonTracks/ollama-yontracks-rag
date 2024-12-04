@@ -11,7 +11,7 @@ import React, {
   useCallback,
   useLayoutEffect,
 } from "react";
-import { FaTrashAlt, FaUpload } from "react-icons/fa";
+import { FaAt, FaTrashAlt, FaUpload } from "react-icons/fa";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { v4 as uuidv4 } from "uuid";
@@ -47,7 +47,10 @@ export default function HomePage() {
   const [base64Image, setBase64Image] = useState<string | null>(null);
   const [streamedResponse, setStreamedResponse] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
-  const [context, setContext] = useIndexedDB<number[]>("home-rag-context", []);
+  const [context, setContext] = useIndexedDB<number[]>(
+    "home-rag-context",
+    [3243, 7389]
+  );
   const [conversations, setConversations] = useIndexedDB<Conversation[]>(
     "home-rag-conversations",
     []
@@ -156,6 +159,19 @@ export default function HomePage() {
   );
 
   const clearImage = () => setBase64Image(null);
+
+  const handleContextUpload = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      setContext([321]);
+      alert("not implimented yet...");
+      console.log(file);
+    },
+    [setContext]
+  );
+
+  const clearContext = () => setContext([]);
 
   const constructMessages = useCallback(() => {
     const systemMessage = ipythonEnabled
@@ -579,9 +595,10 @@ export default function HomePage() {
         <div className="mx-auto flex max-w-3xl items-center px-4">
           {/* Input Container */}
           <div className="relative flex flex-1 resize items-center rounded-lg border border-gray-300 bg-gray-50 shadow-sm focus-within:ring focus-within:ring-blue-300">
-            {/* Image Upload */}
+            {/* Image and Context Upload */}
             {visionEnabled && (
-              <div className="absolute left-3 top-1/2 -translate-y-1/2">
+              <div className="absolute left-3 top-1/2 flex -translate-y-1/2 space-x-2">
+                {/* Image Upload Button */}
                 <label className="cursor-pointer">
                   <input
                     type="file"
@@ -621,13 +638,43 @@ export default function HomePage() {
                     )}
                   </div>
                 </label>
+
+                {/* Context Upload Button */}
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept=".txt,.json,.csv,.doc,.docx,.pdf"
+                    onChange={handleContextUpload}
+                    title="Upload Context"
+                    className="hidden"
+                  />
+                  <div className="flex items-center justify-center">
+                    <FaAt
+                      size={20}
+                      className="text-gray-500 hover:text-blue-500"
+                      title="Upload Context"
+                    />
+                  </div>
+                  {context.length > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        clearContext();
+                      }}
+                      className="absolute -right-2 -top-2 z-20 flex size-5 items-center justify-center rounded-full text-red-500 shadow-md hover:bg-red-500 hover:text-white"
+                      title="Remove Context"
+                    >
+                      <FaTrashAlt size={10} />
+                    </button>
+                  )}
+                </label>
               </div>
             )}
 
             {/* Textarea */}
             <textarea
               ref={textareaRef}
-              className="h-20 w-full resize-none scroll-py-6 rounded-lg border-none px-14 py-4 text-sm placeholder:text-gray-500 focus:outline-none"
+              className="h-20 w-full resize-none scroll-py-6 rounded-lg border-none px-20 py-4 text-sm placeholder:text-gray-500 focus:outline-none"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="Type your message here..."
@@ -639,6 +686,7 @@ export default function HomePage() {
             >
               <div className="size-4"></div>
             </div>
+
             {/* Send or Stop Button */}
             <div className="absolute right-6 top-1/2 -translate-y-1/2">
               {!isStreaming ? (
