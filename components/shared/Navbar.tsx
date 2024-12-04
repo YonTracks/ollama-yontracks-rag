@@ -12,16 +12,14 @@ const Navbar = () => {
       </Link>
 
       <ul className="flex space-x-4">
-        {/* <li>
+        <li>
           <Link
             href="/rag"
-            className={`${
-              pathname === "/rag" ? "text-blue-500" : ""
-            } hover:text-blue-500 transition duration-300`}
+            className={`transition duration-300 hover:text-blue-500`}
           >
             RAG
           </Link>
-        </li> */}
+        </li>
 
         <ThemeButton />
       </ul>

@@ -1,16 +1,20 @@
+// components/DocumentUploader.tsx
+
 "use client";
 
 import { useState, FormEvent } from "react";
+
+import { saveVector } from "@/hooks/useIndexedDB";
 
 export default function DocumentUploader() {
   const [documentText, setDocumentText] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [embeddings, setEmbeddings] = useState<number[] | null>(null);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setMessage("");
 
     try {
       const response = await fetch("/api/embed", {
@@ -24,18 +28,27 @@ export default function DocumentUploader() {
 
       const data = await response.json();
       if (response.ok) {
-        setMessage(
-          `Document embedded and stored successfully! check console for embeddings.  `
+        console.log(
+          "data embed's:",
+          data.embeddings.embeddings[0],
+          "text:",
+          documentText
         );
-
-        console.log("Embedding:", data.embeddings);
-        // TODO: Store embeddings in a vector database (e.g. chroma, Pinecone, Weaviate).
+        setEmbeddings(data.embeddings.embeddings[0]);
+        await saveVector(data.embeddings.embeddings[0], {
+          content: documentText,
+        });
+        console.log(
+          "Embeddings saved in IndexedDB:",
+          data.embeddings.embeddings[0]
+        );
+        setMessage("Document embedded and stored successfully!");
       } else {
         throw new Error(data.error || "Failed to generate embeddings");
       }
     } catch (error) {
-      setMessage("Error uploading document.");
       console.error("Error:", error);
+      setMessage("Error uploading document.");
     } finally {
       setLoading(false);
       setDocumentText("");
@@ -68,6 +81,16 @@ export default function DocumentUploader() {
           </button>
         </form>
         {message && <p className="mt-4 text-center text-gray-700">{message}</p>}
+        {embeddings && (
+          <div className="mt-4">
+            <h2 className="mb-2 text-center text-xl font-bold text-gray-700">
+              Embeddings:
+            </h2>
+            <pre className="h-48 overflow-x-auto rounded bg-gray-100 p-4 text-gray-700">
+              {JSON.stringify(embeddings, null, 2)}
+            </pre>
+          </div>
+        )}
       </div>
     </div>
   );

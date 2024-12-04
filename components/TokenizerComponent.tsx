@@ -1,6 +1,10 @@
+// components/TokenizerComponent.tsx
+
 "use client";
 
 import { useState, FormEvent } from "react";
+
+// import useIndexedDB, { saveVector } from "@/hooks/useIndexedDB";
 
 export default function TokenizerComponent() {
   const [inputText, setInputText] = useState("");
@@ -27,6 +31,10 @@ export default function TokenizerComponent() {
       if (response.ok) {
         setTokens(data.tokens);
         setMessage("Tokenization successful!");
+
+        // Save the tokens as vector in IndexedDB
+        // await saveVector(data.tokens, { content: inputText });
+        // console.log("Tokens saved in IndexedDB:", data.tokens);
       } else {
         throw new Error(data.error || "Failed to tokenize input");
       }
