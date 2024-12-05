@@ -4,7 +4,7 @@
 
 import { useState, FormEvent } from "react";
 
-import { saveVector } from "@/hooks/useIndexedDB";
+import { saveVector, deleteAllVectors } from "@/hooks/useIndexedDB";
 
 export default function DocumentUploader() {
   const [documentText, setDocumentText] = useState("");
@@ -80,6 +80,12 @@ export default function DocumentUploader() {
             {loading ? "Embedding..." : "Embed your Document"}
           </button>
         </form>
+        <button
+          onClick={() => deleteAllVectors()}
+          className={`mt-4 w-full rounded-md bg-indigo-600 p-3 text-white hover:bg-indigo-700`}
+        >
+          Refresh Embeddings
+        </button>
         {message && <p className="mt-4 text-center text-gray-700">{message}</p>}
         {embeddings && (
           <div className="mt-4">

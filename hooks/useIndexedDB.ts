@@ -94,6 +94,16 @@ export async function saveVector(vector: number[], metadata?: unknown) {
   }
 }
 
+export async function deleteAllVectors() {
+  try {
+    const db = await initDB();
+    console.log("Object stores:", db.objectStoreNames); // Debugging
+    await db.clear("vectors");
+    console.log("All vectors deleted successfully.");
+  } catch (error) {
+    console.error("Error deleting vectors from IndexedDB:", error);
+  }
+}
 /**
  * Retrieve vectors from IndexedDB and filter by cosine similarity.
  */

@@ -8,6 +8,7 @@ import { useState, FormEvent } from "react";
 
 export default function TokenizerComponent() {
   const [inputText, setInputText] = useState("");
+  const [modelNameInput, setModelNameInput] = useState("llama3.1");
   const [tokens, setTokens] = useState<number[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -22,7 +23,7 @@ export default function TokenizerComponent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "llama3.2",
+          model: modelNameInput,
           text: inputText,
         }),
       });
@@ -30,7 +31,7 @@ export default function TokenizerComponent() {
       const data = await response.json();
       if (response.ok) {
         setTokens(data.tokens);
-        setMessage("Tokenization successful!");
+        setMessage(`Model: ${modelNameInput} Tokenization successful!`);
 
         // Save the tokens as vector in IndexedDB
         // await saveVector(data.tokens, { content: inputText });
@@ -58,6 +59,14 @@ export default function TokenizerComponent() {
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Enter text to tokenize"
             rows={5}
+            className="w-full rounded-md border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            required
+          />
+          <textarea
+            value={modelNameInput}
+            onChange={(e) => setModelNameInput(e.target.value)}
+            placeholder="Enter model name"
+            rows={1}
             className="w-full rounded-md border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             required
           />

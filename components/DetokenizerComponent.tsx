@@ -6,6 +6,7 @@ import { useState, FormEvent } from "react";
 
 export default function DetokenizerComponent() {
   const [tokenInput, setTokenInput] = useState("");
+  const [modelNameInput, setModelNameInput] = useState("llama3.1");
   const [detokenizedText, setDetokenizedText] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -31,7 +32,7 @@ export default function DetokenizerComponent() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "llama3.2",
+          model: modelNameInput,
           tokens,
         }),
       });
@@ -39,7 +40,7 @@ export default function DetokenizerComponent() {
       const data = await response.json();
       if (response.ok) {
         setDetokenizedText(data.text);
-        setMessage("Detokenization successful!");
+        setMessage(`Model: ${modelNameInput} Detokenization successful!`);
       } else {
         throw new Error(data.error || "Failed to detokenize tokens");
       }
@@ -63,6 +64,14 @@ export default function DetokenizerComponent() {
             onChange={(e) => setTokenInput(e.target.value)}
             placeholder="Enter tokens (comma-separated)"
             rows={5}
+            className="w-full rounded-md border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            required
+          />
+          <textarea
+            value={modelNameInput}
+            onChange={(e) => setModelNameInput(e.target.value)}
+            placeholder="Enter model name"
+            rows={1}
             className="w-full rounded-md border border-gray-300 p-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             required
           />
