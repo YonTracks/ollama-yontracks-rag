@@ -12,11 +12,13 @@ import config from "@/ollama.config.json";
 interface SettingsMenuProps {
   model: string;
   onModelSelectAction: (selectedModel: string) => void;
+  onSettingsUpdateAction: (updatedSettings: unknown) => void;
 }
 
 export default function SettingsMenu({
   model,
   onModelSelectAction,
+  onSettingsUpdateAction,
 }: SettingsMenuProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"settings" | "models" | "tools">(
@@ -82,6 +84,10 @@ export default function SettingsMenu({
         body: JSON.stringify(updatedConfigData),
       });
       if (!response.ok) throw new Error("Failed to update settings");
+
+      // Update the local configData state
+      setConfigData(updatedConfigData);
+      onSettingsUpdateAction(updatedConfigData);
       alert("Settings updated successfully!");
       setDropdownOpen(false);
     } catch (error) {

@@ -36,13 +36,15 @@ export default function HomePage() {
   const [model, setModel] = useState<string>(
     config.globalSettings.defaultModel
   );
-  const [visionEnabled] = useState<boolean>(
+  const [visionEnabled, setVisionEnabled] = useState<boolean>(
     config.globalSettings.visionEnabled
   );
-  const [ipythonEnabled] = useState<boolean>(
+  const [ipythonEnabled, setIpythonEnabled] = useState<boolean>(
     config.globalSettings.ipythonEnabled
   );
-  const [toolsEnabled] = useState<boolean>(config.globalSettings.toolsEnabled);
+  const [toolsEnabled, setToolsEnabled] = useState<boolean>(
+    config.globalSettings.toolsEnabled
+  );
   const [prompt, setPrompt] = useState<string>("");
   const [base64Image, setBase64Image] = useState<string | null>(null);
   const [streamedResponse, setStreamedResponse] = useState<string>("");
@@ -445,6 +447,19 @@ export default function HomePage() {
     setDropdownOpen(false);
   };
 
+  // Function to select model
+  const handleSettingsUpdate = async (updatedConfig: unknown) => {
+    console.log("updated config:", updatedConfig);
+    const updatedGlobalSettings = await updatedConfig?.globalSettings;
+    console.log("updatedGlobalSettings:", updatedGlobalSettings);
+
+    setConfigData(updatedConfig);
+    setIpythonEnabled(updatedGlobalSettings?.ipythonEnabled);
+    setVisionEnabled(updatedGlobalSettings?.visionEnabled);
+    setToolsEnabled(updatedGlobalSettings.toolsEnabled);
+    setDropdownOpen(false);
+  };
+
   // Start a new chat session
   const handleNewChat = () => {
     setContext([]);
@@ -474,7 +489,11 @@ export default function HomePage() {
             New Chat
           </button>
 
-          <SettingsMenu model={model} onModelSelectAction={handleModelSelect} />
+          <SettingsMenu
+            model={model}
+            onModelSelectAction={handleModelSelect}
+            onSettingsUpdateAction={handleSettingsUpdate}
+          />
         </div>
 
         {/* Prompt List when no conversations */}

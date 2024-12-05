@@ -38,7 +38,7 @@ export default function RAGPage() {
         console.log("Query vector:", queryVector);
 
         // Fetch similar documents based on the vector
-        const results = await getSimilarVectors(queryVector, 0.5);
+        const results = await getSimilarVectors(queryVector, 0.1);
         console.log("Similar documents:", results);
         setSimilarDocuments(results);
       } else {
