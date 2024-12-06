@@ -108,13 +108,6 @@ export default function SettingsMenu({
   );
 
   const handleModelSelect = (selectedModel: string) => {
-    setConfigData({
-      ...configData,
-      globalSettings: {
-        ...configData.globalSettings,
-        defaultModel: selectedModel,
-      },
-    });
     onModelSelectAction(selectedModel);
     setDropdownOpen(false);
   };
