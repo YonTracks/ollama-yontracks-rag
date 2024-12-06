@@ -21,7 +21,6 @@ import PromptList from "@/components/PromptList";
 import RunCodeComponent from "@/components/RunCodeComponent";
 import SettingsMenu from "@/components/SettingsMenu";
 import useIndexedDB from "@/hooks/useIndexedDB";
-import { tools } from "@/lib/tools/toolsConfig";
 import { executeTool } from "@/lib/utils/executeTool";
 import { extractCodeSnippets } from "@/lib/utils/extractCodeSnippets";
 import { extractPythonCode } from "@/lib/utils/extractPythonCode";
@@ -32,7 +31,7 @@ import { SettingsResponse, ModelsResponse, Payload } from "@/types/interfaces";
 
 export default function HomePage() {
   const [isClient, setIsClient] = useState<boolean>(false);
-  const [, setConfigData] = useState<SettingsResponse>(config);
+  const [configData, setConfigData] = useState<SettingsResponse>(config);
   const [model, setModel] = useState<string>(
     config.globalSettings.defaultModel
   );
@@ -232,7 +231,7 @@ export default function HomePage() {
 
       // Conditionally add tools if enabled and not executing
       if (toolsEnabled) {
-        payload.tools = tools;
+        payload.tools = configData.defaultTools;
       }
 
       const response = await fetch("/api/ollamaChat", {
@@ -391,6 +390,7 @@ export default function HomePage() {
     constructMessages,
     model,
     toolsEnabled,
+    configData.defaultTools,
     scrollToEnd,
     setConversations,
   ]);
@@ -450,10 +450,11 @@ export default function HomePage() {
   // Function to select model
   const handleSettingsUpdate = async (updatedConfig: unknown) => {
     console.log("updated config:", updatedConfig);
-    const updatedGlobalSettings = await updatedConfig?.globalSettings;
+    const updatedGlobalSettings = await (updatedConfig as SettingsResponse)
+      ?.globalSettings;
     console.log("updatedGlobalSettings:", updatedGlobalSettings);
 
-    setConfigData(updatedConfig);
+    setConfigData(updatedConfig as SettingsResponse);
     setIpythonEnabled(updatedGlobalSettings?.ipythonEnabled);
     setVisionEnabled(updatedGlobalSettings?.visionEnabled);
     setToolsEnabled(updatedGlobalSettings.toolsEnabled);

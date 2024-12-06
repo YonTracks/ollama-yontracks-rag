@@ -32,6 +32,7 @@ export default function SettingsMenu({
   // Track all tools and selected tools
   const [allTools, setAllTools] = useState<Tool[]>([]);
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
+  const [toolsChanged, setToolsChanged] = useState(false);
 
   // Fetch the configuration data from the API
   useEffect(() => {
@@ -63,6 +64,8 @@ export default function SettingsMenu({
       } else {
         newSelectedTools = [...prevSelectedTools, toolName];
       }
+      // Mark that tools have changed
+      setToolsChanged(true);
       return newSelectedTools;
     });
   };
@@ -90,6 +93,7 @@ export default function SettingsMenu({
       onSettingsUpdateAction(updatedConfigData);
       alert("Settings updated successfully!");
       setDropdownOpen(false);
+      setToolsChanged(false); // Reset the toolsChanged state after saving
     } catch (error) {
       console.error("Error updating settings:", error);
       alert("Failed to update settings. Please try again.");
@@ -315,7 +319,7 @@ export default function SettingsMenu({
                         onChange={() =>
                           handleToolCheckboxChange(tool.function.name)
                         }
-                        className="mr-2 "
+                        className="mr-2"
                       />
                       <label className="text-gray-700">
                         {tool.function.name}
@@ -330,6 +334,14 @@ export default function SettingsMenu({
                     Add Tool
                   </button>
                 </Link>
+                {toolsChanged && (
+                  <button
+                    className="ml-2 mt-4 rounded-md bg-blue-500 px-3 py-2 font-semibold text-white hover:bg-blue-600 focus:outline-none"
+                    onClick={handleSettingsUpdate}
+                  >
+                    Save Settings
+                  </button>
+                )}
               </div>
             )}
           </div>

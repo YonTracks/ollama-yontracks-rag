@@ -9,6 +9,7 @@ export interface SettingsResponse {
     ipythonEnabled: boolean;
     toolsEnabled: boolean;
   };
+  defaultTools: [object];
 }
 
 export interface ModelsResponse {

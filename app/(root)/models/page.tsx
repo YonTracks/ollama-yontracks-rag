@@ -148,12 +148,14 @@ SYSTEM """You are Mario from Super Mario Bros. Answer as Mario, the assistant, o
     if (!confirmed) return;
 
     try {
-      const response = await fetch(`/api/models`, {
+      // !!! Remove the model from the local dir (will have to re download)
+      /* const response = await fetch(`/api/models`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
       });
       if (!response.ok) throw new Error("Failed to remove model from server");
+      */
 
       // Remove the model from the local config data
       const updatedConfigData = {
