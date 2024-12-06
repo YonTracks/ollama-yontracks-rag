@@ -1,6 +1,8 @@
-// lib/tools/toolsJson.ts
+// lib/tools/toolsConfig.ts
 
 import { Tool } from "ollama";
+
+import toolsData from "./toolsConfig.json";
 
 /**
  * An array of tool configurations that define functions which can be used throughout the application.
@@ -13,7 +15,10 @@ import { Tool } from "ollama";
  *   - `description`: A brief explanation of what the function does.
  *   - `parameters`: The input parameters required for the function, structured as a JSON schema.
  */
-export const tools: Tool[] = [
+
+export const tools: Tool[] = toolsData;
+
+/* export const tools: Tool[] = [
   {
     type: "function",
     function: {
@@ -121,4 +126,31 @@ export const tools: Tool[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "create_tool",
+      description: "Creates a new tool configuration object.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: {
+            type: "string",
+            description: "The name of the new tool",
+          },
+          description: {
+            type: "string",
+            description: "A description of what this tool does",
+          },
+          parameters: {
+            type: "object",
+            description:
+              "The JSON schema parameters for the tool (properties, required fields, etc.)",
+          },
+        },
+        required: ["name", "description", "parameters"],
+      },
+    },
+  },
 ];
+*/

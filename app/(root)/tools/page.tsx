@@ -12,15 +12,14 @@ import {
   FaSearch,
 } from "react-icons/fa";
 
-import { tools } from "@/lib/tools/toolsJson";
+import ToolFunctionComponent from "@/components/ToolFunctionComponent";
+import ToolJsonComponent from "@/components/ToolJsonComponent";
+import { tools } from "@/lib/tools/toolsConfig";
 import config from "@/ollama.config.json";
 
 function ToolsPage() {
   const [configData, setConfigData] = useState(config);
   const [toolsList, setToolsList] = useState<Tool[]>(tools);
-  const [newToolName, setNewToolName] = useState("");
-  const [newToolDescription, setNewToolDescription] = useState("");
-  const [newToolParameters, setNewToolParameters] = useState("");
 
   const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
   const [isCreateDropdownOpen, setIsCreateDropdownOpen] = useState(false);
@@ -146,41 +145,9 @@ function ToolsPage() {
       </button>
 
       {isCreateDropdownOpen && (
-        <div className="mt-6 w-full max-w-3xl rounded-lg bg-white p-6 shadow-lg">
-          <h2 className="mb-4 text-xl font-bold text-gray-700">
-            Create New Tool
-          </h2>
-          <div className="space-y-4">
-            <input
-              value={newToolName}
-              onChange={(e) => setNewToolName(e.target.value)}
-              placeholder="Tool Name"
-              className="w-full rounded border border-gray-300 p-3 shadow-sm"
-              title="Enter the tool name"
-            />
-            <textarea
-              value={newToolDescription}
-              onChange={(e) => setNewToolDescription(e.target.value)}
-              placeholder="Tool Description"
-              className="w-full rounded border border-gray-300 p-3 shadow-sm"
-              rows={2}
-              title="Enter the tool description"
-            />
-            <textarea
-              value={newToolParameters}
-              onChange={(e) => setNewToolParameters(e.target.value)}
-              placeholder='Tool Parameters (JSON schema, e.g., {"type": "object", "properties": {...}, "required": [...]})'
-              className="w-full rounded border border-gray-300 p-3 shadow-sm"
-              rows={5}
-              title="Enter the tool parameters in JSON schema format"
-            />
-            <button
-              className="w-full rounded bg-green-500 p-3 font-semibold text-white hover:bg-green-600"
-              title="Create the new tool"
-            >
-              Create Tool
-            </button>
-          </div>
+        <div>
+          <ToolJsonComponent />
+          <ToolFunctionComponent />
         </div>
       )}
 

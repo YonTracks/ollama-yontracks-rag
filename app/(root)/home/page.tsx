@@ -21,7 +21,7 @@ import PromptList from "@/components/PromptList";
 import RunCodeComponent from "@/components/RunCodeComponent";
 import SettingsMenu from "@/components/SettingsMenu";
 import useIndexedDB from "@/hooks/useIndexedDB";
-import { tools } from "@/lib/tools/toolsJson";
+import { tools } from "@/lib/tools/toolsConfig";
 import { executeTool } from "@/lib/utils/executeTool";
 import { extractCodeSnippets } from "@/lib/utils/extractCodeSnippets";
 import { extractPythonCode } from "@/lib/utils/extractPythonCode";
